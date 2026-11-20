@@ -25,6 +25,10 @@
   .hat.shop{background:#e7f3ea; border:1px solid #bfe0c9; color:var(--green-dark);}
   .hat.help{background:#fdf3d8; border:1px solid #ecd28a; color:#6d5200;}
   .btn{display:block; width:100%; border:none; border-radius:14px; padding:16px; font-size:18px; font-weight:700; cursor:pointer; margin:0 0 10px; text-align:center; text-decoration:none;}
+  button{touch-action:manipulation;}
+  .btn:active,.person-btn:active{transform:scale(.97); filter:brightness(.92);}
+  .btn.busy{opacity:.55; pointer-events:none;}
+  .btn.busy::after{content:" ⏳";}
   .btn.red{background:var(--red); color:#fff;} .btn.red:active{background:var(--red-dark);}
   .btn.green{background:var(--green); color:#fff;} .btn.green:active{background:var(--green-dark);}
   .btn.ghost{background:#fff; color:var(--ink); border:2px solid var(--line);}
@@ -341,6 +345,18 @@ const $ = (s, el=document) => el.querySelector(s);
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const money = (n) => (n == null || n === '') ? null : '$' + Number(n).toLocaleString('en-US', {maximumFractionDigits: 2});
 
+// Instant tap feedback: mark any tapped button busy (dimmed + locked) until the
+// next render replaces the DOM, so a tap always visibly registers and can't double-fire.
+document.addEventListener('click', e => {
+  const b = e.target.closest && e.target.closest('.btn, .person-btn');
+  if (!b || b.classList.contains('busy')) return;
+  b.classList.add('busy');
+  setTimeout(() => b.classList.remove('busy'), 2500);
+}, true);
+new MutationObserver(() => {
+  document.querySelectorAll('.btn.busy').forEach(b => b.classList.remove('busy'));
+}).observe(document.getElementById('app'), { childList: true });
+
 function toast(msg){ const el = $('#toast'); el.textContent = msg; el.classList.remove('hidden'); setTimeout(()=>el.classList.add('hidden'), 3200); }
 function uiConfirm(msg){
   return new Promise(res => {
@@ -519,8 +535,11 @@ async function renderHome(){
   const helped = people.filter(p => (helpersMap[p.id] || []).includes(me.id) && p.id !== me.id);
   const others = people.filter(p => p.id !== me.id);
   const d = daysToChristmas();
-  const { data: myFlags } = await sb.from('flags').select('*').eq('for_person_id', me.id).eq('seen', false).order('created_at');
-  const { data: allItems } = await sb.from('items').select('*').eq('archived', false);
+  const [flagsRes, allItemsRes] = await Promise.all([
+    sb.from('flags').select('*').eq('for_person_id', me.id).eq('seen', false).order('created_at'),
+    sb.from('items').select('*').eq('archived', false)
+  ]);
+  const myFlags = flagsRes.data, allItems = allItemsRes.data;
   const itemCounts = {}; (allItems || []).forEach(i => { itemCounts[i.owner_id] = (itemCounts[i.owner_id] || 0) + 1; });
   const emptyChip = (pid) => itemCounts[pid] ? '' : ` <span class="chip">${t().emptyBadge}</span>`;
   app.innerHTML = `
@@ -560,9 +579,12 @@ function similar(a, b){
 async function renderOwnerList(ownerId){
   const owner = people.find(p => p.id === ownerId);
   const isHelper = ownerId !== me.id;
-  const { data: items } = await sb.from('items').select('*').eq('owner_id', ownerId).eq('archived', false).order('priority').order('created_at');
-  const { data: removed } = await sb.from('items').select('*').eq('owner_id', ownerId).eq('archived', true).order('updated_at', { ascending: false });
-  const { data: qsRaw } = await sb.from('questions').select('*').eq('owner_id', ownerId).order('created_at');
+  const [itemsRes, removedRes, qsRes] = await Promise.all([
+    sb.from('items').select('*').eq('owner_id', ownerId).eq('archived', false).order('priority').order('created_at'),
+    sb.from('items').select('*').eq('owner_id', ownerId).eq('archived', true).order('updated_at', { ascending: false }),
+    sb.from('questions').select('*').eq('owner_id', ownerId).order('created_at')
+  ]);
+  const items = itemsRes.data, removed = removedRes.data, qsRaw = qsRes.data;
   const qsList = [...(qsRaw || [])].sort((a, b) => (a.answer ? 1 : 0) - (b.answer ? 1 : 0));
   const prioStars = (n) => '⭐'.repeat(4 - n);
   app.innerHTML = `
