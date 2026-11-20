@@ -1,0 +1,868 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Family Gift Lists 🎄</title>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<style>
+  :root{
+    --red:#b3271e; --red-dark:#8f1d16; --green:#1e6b3a; --green-dark:#155129;
+    --gold:#c99700; --bg:#fdf8f2; --card:#ffffff; --ink:#2b2320; --muted:#7a6a61;
+    --line:#e8ddd2; --chip:#f3e9dc; --danger:#b3271e;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  body{margin:0; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif; background:var(--bg); color:var(--ink); font-size:18px; line-height:1.45;}
+  header{background:linear-gradient(135deg,var(--red),var(--red-dark)); color:#fff; padding:14px 16px; position:sticky; top:0; z-index:20; box-shadow:0 2px 8px rgba(0,0,0,.18);}
+  header .row{display:flex; align-items:center; justify-content:space-between; gap:10px; max-width:760px; margin:0 auto;}
+  header h1{font-size:21px; margin:0; font-weight:800; letter-spacing:.2px;}
+  header .sub{font-size:13px; opacity:.9;}
+  .langbtn{background:rgba(255,255,255,.16); color:#fff; border:1px solid rgba(255,255,255,.5); border-radius:999px; padding:7px 14px; font-size:15px; font-weight:700; cursor:pointer;}
+  main{max-width:760px; margin:0 auto; padding:16px 14px 90px;}
+  .card{background:var(--card); border:1px solid var(--line); border-radius:16px; padding:16px; margin:0 0 14px; box-shadow:0 1px 3px rgba(60,30,10,.05);}
+  .hat{border-radius:14px; padding:12px 14px; font-weight:700; margin:0 0 14px; font-size:16px;}
+  .hat.shop{background:#e7f3ea; border:1px solid #bfe0c9; color:var(--green-dark);}
+  .hat.help{background:#fdf3d8; border:1px solid #ecd28a; color:#6d5200;}
+  .btn{display:block; width:100%; border:none; border-radius:14px; padding:16px; font-size:18px; font-weight:700; cursor:pointer; margin:0 0 10px; text-align:center; text-decoration:none;}
+  .btn.red{background:var(--red); color:#fff;} .btn.red:active{background:var(--red-dark);}
+  .btn.green{background:var(--green); color:#fff;} .btn.green:active{background:var(--green-dark);}
+  .btn.ghost{background:#fff; color:var(--ink); border:2px solid var(--line);}
+  .btn.small{width:auto; display:inline-block; padding:10px 16px; font-size:16px; margin:0 6px 6px 0;}
+  .btn:disabled{opacity:.45; cursor:not-allowed;}
+  .person-grid{display:grid; grid-template-columns:1fr 1fr; gap:12px;}
+  .person-btn{background:#fff; border:2px solid var(--line); border-radius:16px; padding:20px 10px; font-size:19px; font-weight:800; cursor:pointer; text-align:center;}
+  .person-btn:active{border-color:var(--red);}
+  .person-btn .face{font-size:34px; display:block; margin-bottom:6px;}
+  .item{border:1px solid var(--line); border-radius:14px; padding:14px; margin:0 0 12px; background:#fff;}
+  .item h3{margin:0 0 4px; font-size:19px;}
+  .item .price{font-weight:800; color:var(--green-dark);}
+  .item .notes{color:var(--muted); font-size:16px; margin-top:2px;}
+  .item a.buy{color:var(--red); font-weight:700; word-break:break-all;}
+  .chip{display:inline-block; background:var(--chip); border-radius:999px; padding:4px 12px; font-size:14px; font-weight:700; margin:2px 4px 2px 0;}
+  .chip.claimed{background:#fde3e0; color:var(--red-dark);}
+  .chip.open{background:#e7f3ea; color:var(--green-dark);}
+  .chip.pool{background:#e2ebfd; color:#274b8f;}
+  .chip.funded{background:#274b8f; color:#fff;}
+  .chip.bought{background:#333; color:#fff;}
+  .prio{color:var(--gold); font-size:15px; letter-spacing:2px;}
+  label{display:block; font-weight:700; margin:12px 0 6px; font-size:16px;}
+  input[type=text],input[type=url],input[type=number],input[type=password],select,textarea{width:100%; padding:14px; font-size:18px; border:2px solid var(--line); border-radius:12px; background:#fff; color:var(--ink);}
+  textarea{min-height:64px;}
+  .muted{color:var(--muted); font-size:15px;}
+  .flag{background:#fdf3d8; border:1px solid #ecd28a; border-radius:12px; padding:12px 14px; margin:0 0 10px; font-size:16px;}
+  .toast{position:fixed; left:50%; transform:translateX(-50%); bottom:22px; background:#2b2320; color:#fff; padding:13px 20px; border-radius:999px; font-size:16px; font-weight:700; z-index:99; max-width:92%; text-align:center; box-shadow:0 4px 16px rgba(0,0,0,.3);}
+  .hidden{display:none !important;}
+  .countdown{text-align:center; font-size:17px; font-weight:800; color:var(--red-dark); background:#fdeceb; border:1px solid #f5c6c0; border-radius:14px; padding:10px; margin:0 0 14px;}
+  .rowflex{display:flex; gap:8px; flex-wrap:wrap; align-items:center;}
+  .back{background:none; border:none; color:#fff; font-size:16px; font-weight:700; cursor:pointer; padding:4px 0;}
+  h2{font-size:22px; margin:4px 0 12px;}
+  .divider{height:1px; background:var(--line); margin:14px 0;}
+  .log{font-size:14px; color:var(--muted);}
+  .log div{padding:6px 0; border-bottom:1px dashed var(--line);}
+</style>
+</head>
+<body>
+<header>
+  <div class="row">
+    <div>
+      <h1 id="hdr-title">🎄 Family Gift Lists</h1>
+      <div class="sub" id="hdr-sub"></div>
+    </div>
+    <button class="langbtn" id="lang-toggle">Español</button>
+  </div>
+</header>
+<main id="app">
+  <div class="card"><p id="loading-msg">Loading… / Cargando…</p></div>
+</main>
+<div id="toast" class="toast hidden"></div>
+
+<script>
+const FIREBASE_CONFIG = {
+    apiKey: "AIzaSyBU16_BmF2ysSm9rrfhNQEUG-rwv9Q_5C0",
+    authDomain: "family-gift-list-4bd93.firebaseapp.com",
+    projectId: "family-gift-list-4bd93",
+    storageBucket: "family-gift-list-4bd93.firebasestorage.app",
+    messagingSenderId: "370403996846",
+    appId: "1:370403996846:web:a25d9c13b0ab4bcd59293f"
+  };
+firebase.initializeApp(FIREBASE_CONFIG);
+const fdb = firebase.firestore();
+// Data shim: same call shapes the app already uses, backed by Firestore.
+// Filtering happens in queries; sorting/limits are applied client-side (family-scale data,
+// avoids Firestore composite-index requirements entirely).
+function docToObj(d){ return Object.assign({ id: d.id }, d.data()); }
+class QB {
+  constructor(coll){ this.coll = coll; this.filters = []; this.orders = []; this.limitN = null; this.mode = 'select'; this.payload = null; this._single = false; }
+  select(){ this.mode = 'select'; return this; }
+  insert(payload){ this.mode = 'insert'; this.payload = payload; return this._exec(); }
+  update(payload){ this.mode = 'update'; this.payload = payload; return this; }
+  delete(){ this.mode = 'delete'; return this; }
+  eq(f, v){ this.filters.push({ f, op: '==', v }); return this; }
+  in(f, vals){ this.filters.push({ f, op: 'in', v: vals }); return this; }
+  order(f, opts){ this.orders.push({ f, dir: (opts && opts.ascending === false) ? -1 : 1 }); return this; }
+  limit(n){ this.limitN = n; return this; }
+  single(){ this._single = true; return this._exec(); }
+  then(res, rej){ return this._exec().then(res, rej); }
+  _query(){
+    let q = fdb.collection(this.coll);
+    for (const flt of this.filters) q = q.where(flt.f, flt.op, flt.v);
+    return q;
+  }
+  async _exec(){
+    try {
+      if (this.mode === 'insert') {
+        const p = Object.assign({}, this.payload);
+        if (!('created_at' in p)) p.created_at = new Date().toISOString();
+        await fdb.collection(this.coll).add(p);
+        return { data: null, error: null };
+      }
+      const snap = await this._query().get();
+      const docs = snap.docs;
+      if (this.mode === 'update') {
+        const batch = fdb.batch();
+        docs.forEach(d => batch.update(d.ref, this.payload));
+        await batch.commit();
+        return { data: null, error: null };
+      }
+      if (this.mode === 'delete') {
+        const batch = fdb.batch();
+        docs.forEach(d => batch.delete(d.ref));
+        await batch.commit();
+        return { data: null, error: null };
+      }
+      let rows = docs.map(docToObj);
+      for (let i = this.orders.length - 1; i >= 0; i--) {
+        const o = this.orders[i];
+        rows.sort((a, b) => {
+          const av = a[o.f] ?? '', bv = b[o.f] ?? '';
+          if (av < bv) return -1 * o.dir;
+          if (av > bv) return 1 * o.dir;
+          return 0;
+        });
+      }
+      if (this.limitN != null) rows = rows.slice(0, this.limitN);
+      if (this._single) return { data: rows[0] || null, error: null };
+      return { data: rows, error: null };
+    } catch (e) {
+      return { data: null, error: { message: String((e && e.message) || e) } };
+    }
+  }
+}
+const sb = { from: (coll) => new QB(coll) };
+// First run only: seed the family roster, the Anthony-helps-Wendy link, and the family code.
+async function ensureSeed(){
+  try {
+    const snap = await fdb.collection('people').limit(1).get();
+    if (!snap.empty) return;
+    const batch = fdb.batch();
+    const base = Date.parse('2026-11-19T00:00:00.000Z');
+    const ts = (i) => new Date(base + i * 1000).toISOString();
+    const seedPeople = [
+      ['anthony', 'Anthony', 'en', true],
+      ['miriam', 'Miriam', 'en', false],
+      ['wendy', 'Wendy \u2014 Mom', 'es', false],
+      ['dad', 'Dad \u2014 Anthony Sr.', 'es', false],
+      ['heidy', 'Heidy', 'en', false],
+      ['britney', 'Britney', 'en', false]
+    ];
+    seedPeople.forEach((sp, i) => {
+      batch.set(fdb.collection('people').doc(sp[0]), { name: sp[1], lang: sp[2], pin: null, is_organizer: sp[3], active: true, created_at: ts(i) });
+    });
+    batch.set(fdb.collection('helpers').doc('wendy_anthony'), { person_id: 'wendy', helper_id: 'anthony', created_at: ts(10) });
+    batch.set(fdb.collection('config').doc('family_code'), { key: 'family_code', value: 'navidad' });
+    await batch.commit();
+  } catch (e) {}
+}
+const CHRISTMAS = new Date("2026-12-25T00:00:00");
+
+const T = {
+  en: {
+    appTitle: "🎄 Family Gift Lists", loading: "Loading…", codeTitle: "Family code",
+    codeHelp: "Enter the family code to open the gift lists.", codePh: "Family code", enter: "Enter",
+    codeWrong: "That code doesn't match. Check with Anthony and try again.",
+    whoTitle: "Who is using the app?", whoHelp: "Tap your name. No password — just don't tap someone else's name by mistake!",
+    pinTitle: "Enter your PIN", pinHelp: "This name is protected with a PIN.", pinWrong: "Wrong PIN. Try again.",
+    hello: "Hi", countdown: "days until Christmas 🎄", today: "It's Christmas Day! 🎄",
+    hatShop: (n)=>`🛍️ You are shopping as ${n}. You can see claims and pools on other people's lists.`,
+    hatHelp: (n)=>`🤝 You are helping ${n}. This is their list exactly as they see it — claims stay hidden here so nothing is spoiled.`,
+    myList: "🎁 My list", helpLists: "🤝 Lists I help with", shopFor: "🛍️ Shop for family",
+    myClaims: "✅ My claims & pools", organizer: "🛠️ Organizer", switchPerson: "Switch person",
+    addItem: "Add an item", titlePh: "What is it? (e.g. Blue sweater, size M)", linkPh: "Link (optional) — paste a store link",
+    pricePh: "Price in $ (optional)", notesPh: "Notes (optional) — size, color, where to find it",
+    prio: "How much do you want it?", prio1: "⭐⭐⭐ Really want it", prio2: "⭐⭐ Would love it", prio3: "⭐ Nice to have",
+    save: "Save", cancel: "Cancel", edit: "Edit", remove: "Remove", restore: "Restore", removedItems: "Removed items (tap Restore to bring one back)",
+    yourItems: "On the list", emptyList: "Nothing here yet. Add the first item!",
+    dupWarn: (t)=>`This looks similar to "${t}", which is already on this list. Add it anyway?`,
+    viewLink: "View / buy →", noPrice: "No price set",
+    statusOpen: "Open", statusClaimed: (n)=>`Claimed by ${n}`, statusBought: (n)=>`Bought by ${n}`,
+    statusPool: (a,b)=>`Pool: $${a} of $${b}`, statusFunded: "Pool funded! 🎉",
+    claim: "I'll get this", markBought: "Mark as bought", release: "Release claim",
+    joinPool: "Chip in", pledgePh: "Your amount $", getInLine: "Get in line", leaveLine: "Leave line",
+    inLine: (n)=>`In line: ${n}`, youNext: "You're next if the claim is released",
+    claimedOk: "Claimed! It's yours to buy — nobody else can claim it now.",
+    boughtOk: "Marked as bought. 🎉", releasedOk: "Claim released.", pledgedOk: "You're in the pool!",
+    withdrewOk: "Pledge withdrawn.", lineOk: "You're in line.", leftLineOk: "You left the line.",
+    poolDone: "This pool is fully funded — the group has it covered.",
+    yourClaimsTitle: "My claims & pools", noClaims: "You haven't claimed or pooled anything yet.",
+    youClaimed: "You claimed this", youPledged: (a)=>`You pledged $${a}`, yourNote: "Your private note (store, receipt…)",
+    noteSaved: "Note saved.", flagsTitle: "Heads up", flagDismiss: "Got it",
+    orgTitle: "Organizer tools", addPerson: "Add a person", namePh: "Name (e.g. Cousin Luis)",
+    langLabel: "Preferred language", addBtn: "Add", peopleTitle: "People", helpersFor: "Helpers for",
+    setPin: "Set PIN", clearPin: "Clear PIN", pinSet: "PIN updated.", deactivate: "Deactivate", reactivate: "Reactivate",
+    inactive: "inactive", newSeason: "Start a new season (archives all lists & clears claims/pools)",
+    newSeasonConfirm: "Archive ALL current lists and clear every claim and pool? People stay. This is for after Christmas.",
+    seasonDone: "New season started. Lists are archived.",
+    activityTitle: "Recent activity", changeCode: "Change family code", codeChanged: "Family code changed.",
+    savedOk: "Saved.", removedOk: "Removed. You can restore it from Removed items.",
+    itemChangedFlag: (t,o)=>`The item "${t}" on ${o}'s list was changed or removed after you claimed or pooled it. Check your claims.`,
+    yourTurnFlag: (t,o)=>`Good news: "${t}" on ${o}'s list is open again and you're next in line!`,
+    unfundedFlag: (t,o)=>`A pledge was withdrawn, so the pool for "${t}" on ${o}'s list is no longer fully funded.`,
+    backHome: "← Home", back: "← Back",
+    poolNeedsPrice: "Pooling needs a price on the item. The owner can add one.",
+    confirmRemove: "Remove this item from the list?",
+    confirmRelease: "Release your claim so someone else can get it?",
+    confirmWithdraw: "Withdraw your pledge from this pool?",
+    helpedPerson: (n)=>`Helping ${n}`, viewAsShopper: "Shop for them instead",
+    nothingHere: "Nothing here yet."
+  },
+  es: {
+    appTitle: "🎄 Listas de Regalos de la Familia", loading: "Cargando…", codeTitle: "Código de la familia",
+    codeHelp: "Escribe el código de la familia para abrir las listas.", codePh: "Código de la familia", enter: "Entrar",
+    codeWrong: "Ese código no coincide. Pregúntale a Anthony e inténtalo de nuevo.",
+    whoTitle: "¿Quién está usando la aplicación?", whoHelp: "Toca tu nombre. No hay contraseña — ¡solo no toques el nombre de otra persona por error!",
+    pinTitle: "Escribe tu PIN", pinHelp: "Este nombre está protegido con un PIN.", pinWrong: "PIN incorrecto. Inténtalo de nuevo.",
+    hello: "Hola", countdown: "días para Navidad 🎄", today: "¡Es Navidad! 🎄",
+    hatShop: (n)=>`🛍️ Estás comprando como ${n}. Puedes ver los apartados y los fondos en las listas de los demás.`,
+    hatHelp: (n)=>`🤝 Estás ayudando a ${n}. Esta es su lista tal como la ve — los apartados se quedan ocultos aquí para no arruinar la sorpresa.`,
+    myList: "🎁 Mi lista", helpLists: "🤝 Listas que ayudo a manejar", shopFor: "🛍️ Comprar para la familia",
+    myClaims: "✅ Mis apartados y fondos", organizer: "🛠️ Organizador", switchPerson: "Cambiar de persona",
+    addItem: "Agregar un artículo", titlePh: "¿Qué es? (ej. Suéter azul, talla M)", linkPh: "Enlace (opcional) — pega el enlace de la tienda",
+    pricePh: "Precio en $ (opcional)", notesPh: "Notas (opcional) — talla, color, dónde encontrarlo",
+    prio: "¿Cuánto lo quieres?", prio1: "⭐⭐⭐ Lo quiero mucho", prio2: "⭐⭐ Me encantaría", prio3: "⭐ Estaría bien",
+    save: "Guardar", cancel: "Cancelar", edit: "Editar", remove: "Quitar", restore: "Restaurar", removedItems: "Artículos quitados (toca Restaurar para devolver uno)",
+    yourItems: "En la lista", emptyList: "Todavía no hay nada. ¡Agrega el primer artículo!",
+    dupWarn: (t)=>`Esto se parece a "${t}", que ya está en esta lista. ¿Agregarlo de todos modos?`,
+    viewLink: "Ver / comprar →", noPrice: "Sin precio",
+    statusOpen: "Disponible", statusClaimed: (n)=>`Apartado por ${n}`, statusBought: (n)=>`Comprado por ${n}`,
+    statusPool: (a,b)=>`Fondo: $${a} de $${b}`, statusFunded: "¡Fondo completo! 🎉",
+    claim: "Yo lo compro", markBought: "Marcar como comprado", release: "Soltar el apartado",
+    joinPool: "Aportar", pledgePh: "Tu cantidad $", getInLine: "Ponerme en fila", leaveLine: "Salir de la fila",
+    inLine: (n)=>`En fila: ${n}`, youNext: "Eres el siguiente si se suelta el apartado",
+    claimedOk: "¡Apartado! Es tuyo para comprar — ya nadie más puede apartarlo.",
+    boughtOk: "Marcado como comprado. 🎉", releasedOk: "Apartado soltado.", pledgedOk: "¡Ya estás en el fondo!",
+    withdrewOk: "Aporte retirado.", lineOk: "Ya estás en la fila.", leftLineOk: "Saliste de la fila.",
+    poolDone: "Este fondo ya está completo — el grupo lo tiene cubierto.",
+    yourClaimsTitle: "Mis apartados y fondos", noClaims: "Todavía no has apartado ni aportado a nada.",
+    youClaimed: "Tú apartaste esto", youPledged: (a)=>`Aportaste $${a}`, yourNote: "Tu nota privada (tienda, recibo…)",
+    noteSaved: "Nota guardada.", flagsTitle: "Aviso", flagDismiss: "Entendido",
+    orgTitle: "Herramientas del organizador", addPerson: "Agregar una persona", namePh: "Nombre (ej. Primo Luis)",
+    langLabel: "Idioma preferido", addBtn: "Agregar", peopleTitle: "Personas", helpersFor: "Ayudantes de",
+    setPin: "Poner PIN", clearPin: "Quitar PIN", pinSet: "PIN actualizado.", deactivate: "Desactivar", reactivate: "Reactivar",
+    inactive: "inactivo", newSeason: "Empezar una temporada nueva (archiva todas las listas y borra apartados/fondos)",
+    newSeasonConfirm: "¿Archivar TODAS las listas actuales y borrar cada apartado y fondo? Las personas se quedan. Esto es para después de Navidad.",
+    seasonDone: "Temporada nueva empezada. Las listas están archivadas.",
+    activityTitle: "Actividad reciente", changeCode: "Cambiar el código de la familia", codeChanged: "Código de la familia cambiado.",
+    savedOk: "Guardado.", removedOk: "Quitado. Puedes restaurarlo desde Artículos quitados.",
+    itemChangedFlag: (t,o)=>`El artículo "${t}" en la lista de ${o} cambió o fue quitado después de que lo apartaste o aportaste. Revisa tus apartados.`,
+    yourTurnFlag: (t,o)=>`Buenas noticias: "${t}" en la lista de ${o} está disponible otra vez y ¡eres el siguiente en la fila!`,
+    unfundedFlag: (t,o)=>`Se retiró un aporte, así que el fondo para "${t}" en la lista de ${o} ya no está completo.`,
+    backHome: "← Inicio", back: "← Atrás",
+    poolNeedsPrice: "Para hacer fondo el artículo necesita precio. El dueño puede agregarlo.",
+    confirmRemove: "¿Quitar este artículo de la lista?",
+    confirmRelease: "¿Soltar tu apartado para que otra persona lo pueda comprar?",
+    confirmWithdraw: "¿Retirar tu aporte de este fondo?",
+    helpedPerson: (n)=>`Ayudando a ${n}`, viewAsShopper: "Mejor comprar para esta persona",
+    nothingHere: "Todavía no hay nada."
+  }
+};
+// ---------- State ----------
+let people = [];           // all active people
+let helpersMap = {};       // person_id -> [helper_id]
+let me = null;             // current person object (the human using the app)
+let lang = localStorage.getItem('fgl_lang') || 'en';
+const t = () => T[lang];
+const app = document.getElementById('app');
+const $ = (s, el=document) => el.querySelector(s);
+const esc = (s) => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const money = (n) => (n == null || n === '') ? null : '$' + Number(n).toLocaleString('en-US', {maximumFractionDigits: 2});
+
+function toast(msg){ const el = $('#toast'); el.textContent = msg; el.classList.remove('hidden'); setTimeout(()=>el.classList.add('hidden'), 3200); }
+function setLang(l){ lang = l; localStorage.setItem('fgl_lang', l); $('#lang-toggle').textContent = (l === 'en') ? 'Español' : 'English'; document.documentElement.lang = l; }
+$('#lang-toggle').addEventListener('click', ()=>{ setLang(lang === 'en' ? 'es' : 'en'); render(); });
+
+async function logActivity(actorId, subjectPersonId, itemId, type, detail){
+  try { await sb.from('activity').insert({ actor_id: actorId, subject_person_id: subjectPersonId, item_id: itemId, type, detail }); } catch(e){}
+}
+async function flag(personId, itemId, message){
+  if (!personId) return;
+  try { await sb.from('flags').insert({ for_person_id: personId, item_id: itemId, message }); } catch(e){}
+}
+const personName = (id) => (people.find(p => p.id === id) || {}).name || '—';
+const FACES = ['🎅','🎁','⭐','🦌','⛄','🎄','🧦','🔔','🕯️','🍪','🎶','❄️'];
+const faceFor = (id) => { let h = 0; for (const c of String(id)) h = (h*31 + c.charCodeAt(0)) >>> 0; return FACES[h % FACES.length]; };
+
+// ---------- Boot ----------
+async function boot(){
+  setLang(lang);
+  await ensureSeed();
+  const { data: cfg } = await sb.from('config').select('*').eq('key','family_code').single();
+  window._familyCode = cfg ? cfg.value : null;
+  if (localStorage.getItem('fgl_code') !== 'ok') return renderGate();
+  await loadPeople();
+  const savedId = localStorage.getItem('fgl_person');
+  me = people.find(p => p.id === savedId) || null;
+  if (!me) return renderWho();
+  lang = me.lang || lang; setLang(lang);
+  renderHome();
+}
+async function loadPeople(){
+  const { data } = await sb.from('people').select('*').eq('active', true).order('created_at');
+  people = data || [];
+  const { data: hs } = await sb.from('helpers').select('*');
+  helpersMap = {};
+  (hs || []).forEach(h => { (helpersMap[h.person_id] = helpersMap[h.person_id] || []).push(h.helper_id); });
+}
+function render(){ if (!me) { boot(); } else { renderHome(); } }
+
+// ---------- Gate ----------
+function renderGate(){
+  $('#hdr-sub').textContent = '';
+  app.innerHTML = `
+    <div class="card">
+      <h2>🔐 ${t().codeTitle}</h2>
+      <p class="muted">${t().codeHelp}</p>
+      <label>${t().codePh}</label>
+      <input type="password" id="code-in" autocomplete="off">
+      <div style="height:12px"></div>
+      <button class="btn red" id="code-btn">${t().enter}</button>
+    </div>`;
+  const go = async () => {
+    const v = $('#code-in').value.trim().toLowerCase();
+    if (window._familyCode && v === String(window._familyCode).toLowerCase()) {
+      localStorage.setItem('fgl_code', 'ok'); boot();
+    } else toast(t().codeWrong);
+  };
+  $('#code-btn').addEventListener('click', go);
+  $('#code-in').addEventListener('keydown', e => { if (e.key === 'Enter') go(); });
+}
+
+// ---------- Who ----------
+function renderWho(){
+  $('#hdr-sub').textContent = '';
+  app.innerHTML = `
+    <div class="card">
+      <h2>👋 ${t().whoTitle}</h2>
+      <p class="muted">${t().whoHelp}</p>
+      <div class="person-grid">
+        ${people.map(p => `<button class="person-btn" data-id="${p.id}"><span class="face">${faceFor(p.id)}</span>${esc(p.name)}</button>`).join('')}
+      </div>
+    </div>`;
+  app.querySelectorAll('.person-btn').forEach(b => b.addEventListener('click', () => pickPerson(b.dataset.id)));
+}
+async function pickPerson(id){
+  const p = people.find(x => x.id === id);
+  if (!p) return;
+  if (p.pin) {
+    app.innerHTML = `
+      <div class="card">
+        <h2>🔢 ${t().pinTitle} — ${esc(p.name)}</h2>
+        <p class="muted">${t().pinHelp}</p>
+        <input type="password" id="pin-in" inputmode="numeric" autocomplete="off">
+        <div style="height:12px"></div>
+        <button class="btn red" id="pin-btn">${t().enter}</button>
+        <button class="btn ghost" id="pin-back">${t().back}</button>
+      </div>`;
+    $('#pin-back').addEventListener('click', renderWho);
+    const go = () => {
+      if ($('#pin-in').value === p.pin) { me = p; finishPick(); } else toast(t().pinWrong);
+    };
+    $('#pin-btn').addEventListener('click', go);
+    $('#pin-in').addEventListener('keydown', e => { if (e.key === 'Enter') go(); });
+    return;
+  }
+  me = p; finishPick();
+}
+function finishPick(){
+  localStorage.setItem('fgl_person', me.id);
+  lang = me.lang || lang; setLang(lang);
+  renderHome();
+}
+
+// ---------- Home ----------
+function daysToChristmas(){
+  const now = new Date(); const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const diff = Math.round((CHRISTMAS - today) / 86400000);
+  return diff;
+}
+async function renderHome(){
+  $('#hdr-sub').textContent = `${t().hello}, ${me.name}`;
+  const helped = people.filter(p => (helpersMap[p.id] || []).includes(me.id) && p.id !== me.id);
+  const others = people.filter(p => p.id !== me.id);
+  const d = daysToChristmas();
+  const { data: myFlags } = await sb.from('flags').select('*').eq('for_person_id', me.id).eq('seen', false).order('created_at');
+  app.innerHTML = `
+    ${d > 0 ? `<div class="countdown">🎄 ${d} ${t().countdown}</div>` : (d === 0 ? `<div class="countdown">${t().today}</div>` : '')}
+    ${(myFlags && myFlags.length) ? `<div class="card"><h2>📣 ${t().flagsTitle}</h2>${myFlags.map(f => `<div class="flag">${esc(f.message)}<br><button class="btn small ghost" data-flag="${f.id}">${t().flagDismiss}</button></div>`).join('')}</div>` : ''}
+    <div class="hat shop">${t().hatShop(me.name)}</div>
+    <button class="btn red" id="h-mylist">${t().myList}</button>
+    ${helped.length ? `<div class="card"><h2>${t().helpLists}</h2>${helped.map(p => `<button class="btn ghost" data-help="${p.id}">🤝 ${esc(p.name)}</button>`).join('')}</div>` : ''}
+    <div class="card">
+      <h2>${t().shopFor}</h2>
+      ${others.map(p => `<button class="btn ghost" data-shop="${p.id}">${faceFor(p.id)} ${esc(p.name)}</button>`).join('')}
+    </div>
+    <button class="btn green" id="h-claims">${t().myClaims}</button>
+    ${me.is_organizer ? `<button class="btn ghost" id="h-org">${t().organizer}</button>` : ''}
+    <button class="btn ghost" id="h-switch">${t().switchPerson}</button>`;
+  $('#h-mylist').addEventListener('click', () => renderOwnerList(me.id));
+  app.querySelectorAll('[data-help]').forEach(b => b.addEventListener('click', () => renderOwnerList(b.dataset.help)));
+  app.querySelectorAll('[data-shop]').forEach(b => b.addEventListener('click', () => renderShopList(b.dataset.shop)));
+  $('#h-claims').addEventListener('click', renderMyClaims);
+  const org = $('#h-org'); if (org) org.addEventListener('click', renderOrganizer);
+  $('#h-switch').addEventListener('click', () => { me = null; localStorage.removeItem('fgl_person'); renderWho(); });
+  app.querySelectorAll('[data-flag]').forEach(b => b.addEventListener('click', async () => {
+    await sb.from('flags').update({ seen: true }).eq('id', b.dataset.flag); renderHome();
+  }));
+}
+// ---------- Owner list (self or helper view — claims NEVER loaded here) ----------
+function similar(a, b){
+  a = (a||'').toLowerCase().trim(); b = (b||'').toLowerCase().trim();
+  if (!a || !b) return false;
+  if (a.includes(b) || b.includes(a)) return true;
+  const aw = new Set(a.split(/\W+/).filter(w => w.length > 2));
+  const bw = b.split(/\W+/).filter(w => w.length > 2);
+  return bw.some(w => aw.has(w));
+}
+async function renderOwnerList(ownerId){
+  const owner = people.find(p => p.id === ownerId);
+  const isHelper = ownerId !== me.id;
+  const { data: items } = await sb.from('items').select('*').eq('owner_id', ownerId).eq('archived', false).order('priority').order('created_at');
+  const { data: removed } = await sb.from('items').select('*').eq('owner_id', ownerId).eq('archived', true).order('updated_at', { ascending: false });
+  const prioStars = (n) => '⭐'.repeat(4 - n);
+  app.innerHTML = `
+    <button class="btn small ghost" id="o-back">${t().backHome}</button>
+    ${isHelper ? `<div class="hat help">${t().hatHelp(owner.name)}<br><button class="btn small ghost" id="o-shop" style="margin-top:8px">${t().viewAsShopper}</button></div>` : ``}
+    <div class="card">
+      <h2>${isHelper ? t().helpedPerson(owner.name) : t().myList}</h2>
+      <h3 style="margin:10px 0 8px">${t().addItem}</h3>
+      <input type="text" id="i-title" placeholder="${t().titlePh}">
+      <input type="url" id="i-url" placeholder="${t().linkPh}">
+      <input type="number" id="i-price" placeholder="${t().pricePh}" min="0" step="0.01" inputmode="decimal">
+      <textarea id="i-notes" placeholder="${t().notesPh}"></textarea>
+      <label>${t().prio}</label>
+      <select id="i-prio">
+        <option value="1">${t().prio1}</option>
+        <option value="2" selected>${t().prio2}</option>
+        <option value="3">${t().prio3}</option>
+      </select>
+      <div style="height:12px"></div>
+      <button class="btn red" id="i-add">${t().addItem}</button>
+    </div>
+    <div class="card">
+      <h2>${t().yourItems}</h2>
+      <div id="o-items">
+      ${(items && items.length) ? items.map(it => `
+        <div class="item">
+          <h3>${esc(it.title)}</h3>
+          <span class="prio">${prioStars(it.priority)}</span>
+          ${it.price != null ? `<span class="price">${money(it.price)}</span>` : `<span class="muted">${t().noPrice}</span>`}
+          ${it.notes ? `<div class="notes">${esc(it.notes)}</div>` : ''}
+          ${it.url ? `<div><a class="buy" href="${esc(it.url)}" target="_blank" rel="noopener">${t().viewLink}</a></div>` : ''}
+          <div class="rowflex" style="margin-top:8px">
+            <button class="btn small ghost" data-edit="${it.id}">${t().edit}</button>
+            <button class="btn small ghost" data-del="${it.id}">${t().remove}</button>
+          </div>
+          <div id="edit-${it.id}"></div>
+        </div>`).join('') : `<p class="muted">${t().emptyList}</p>`}
+      </div>
+    </div>
+    ${(removed && removed.length) ? `<div class="card"><h2>${t().removedItems}</h2>${removed.map(it => `
+      <div class="item"><h3>${esc(it.title)}</h3><button class="btn small green" data-restore="${it.id}">${t().restore}</button></div>`).join('')}</div>` : ''}`;
+  $('#o-back').addEventListener('click', renderHome);
+  const shopBtn = $('#o-shop'); if (shopBtn) shopBtn.addEventListener('click', () => renderShopList(ownerId));
+  $('#i-add').addEventListener('click', async () => {
+    const title = $('#i-title').value.trim();
+    if (!title) { $('#i-title').focus(); return; }
+    const all = [...(items||[]), ...(removed||[])];
+    const dup = all.find(x => similar(x.title, title));
+    if (dup && !confirm(t().dupWarn(dup.title))) return;
+    const payload = {
+      owner_id: ownerId, title,
+      url: $('#i-url').value.trim() || null,
+      price: $('#i-price').value ? Number($('#i-price').value) : null,
+      notes: $('#i-notes').value.trim() || null,
+      priority: Number($('#i-prio').value),
+      created_by: me.id, updated_at: new Date().toISOString()
+    };
+    const { error } = await sb.from('items').insert(payload);
+    if (error) { toast(error.message); return; }
+    await logActivity(me.id, ownerId, null, 'item_add', title);
+    toast(t().savedOk); renderOwnerList(ownerId);
+  });
+  app.querySelectorAll('[data-del]').forEach(b => b.addEventListener('click', async () => {
+    if (!confirm(t().confirmRemove)) return;
+    const itemId = b.dataset.del;
+    const it = (items||[]).find(x => x.id === itemId);
+    await notifyClaimersChanged(itemId, it, owner);
+    const { error } = await sb.from('items').update({ archived: true, updated_at: new Date().toISOString() }).eq('id', itemId);
+    if (error) { toast(error.message); return; }
+    await logActivity(me.id, ownerId, itemId, 'item_remove', it ? it.title : '');
+    toast(t().removedOk); renderOwnerList(ownerId);
+  }));
+  app.querySelectorAll('[data-restore]').forEach(b => b.addEventListener('click', async () => {
+    await sb.from('items').update({ archived: false, updated_at: new Date().toISOString() }).eq('id', b.dataset.restore);
+    toast(t().savedOk); renderOwnerList(ownerId);
+  }));
+  app.querySelectorAll('[data-edit]').forEach(b => b.addEventListener('click', () => {
+    const it = (items||[]).find(x => x.id === b.dataset.edit);
+    const box = $(`#edit-${it.id}`);
+    box.innerHTML = `
+      <div class="divider"></div>
+      <input type="text" id="e-title-${it.id}" value="${esc(it.title)}">
+      <input type="url" id="e-url-${it.id}" value="${esc(it.url || '')}" placeholder="${t().linkPh}">
+      <input type="number" id="e-price-${it.id}" value="${it.price ?? ''}" placeholder="${t().pricePh}" min="0" step="0.01" inputmode="decimal">
+      <textarea id="e-notes-${it.id}" placeholder="${t().notesPh}">${esc(it.notes || '')}</textarea>
+      <select id="e-prio-${it.id}">
+        <option value="1" ${it.priority===1?'selected':''}>${t().prio1}</option>
+        <option value="2" ${it.priority===2?'selected':''}>${t().prio2}</option>
+        <option value="3" ${it.priority===3?'selected':''}>${t().prio3}</option>
+      </select>
+      <div class="rowflex" style="margin-top:8px">
+        <button class="btn small red" data-save="${it.id}">${t().save}</button>
+        <button class="btn small ghost" data-cancel="${it.id}">${t().cancel}</button>
+      </div>`;
+    box.querySelector('[data-cancel]').addEventListener('click', () => { box.innerHTML = ''; });
+    box.querySelector('[data-save]').addEventListener('click', async () => {
+      const title = $(`#e-title-${it.id}`).value.trim(); if (!title) return;
+      await notifyClaimersChanged(it.id, it, owner);
+      const { error } = await sb.from('items').update({
+        title, url: $(`#e-url-${it.id}`).value.trim() || null,
+        price: $(`#e-price-${it.id}`).value ? Number($(`#e-price-${it.id}`).value) : null,
+        notes: $(`#e-notes-${it.id}`).value.trim() || null,
+        priority: Number($(`#e-prio-${it.id}`).value),
+        updated_at: new Date().toISOString()
+      }).eq('id', it.id);
+      if (error) { toast(error.message); return; }
+      await logActivity(me.id, ownerId, it.id, 'item_edit', title);
+      toast(t().savedOk); renderOwnerList(ownerId);
+    });
+  }));
+}
+// When an owner/helper changes or removes an item that shoppers have claimed or pooled,
+// flag those shoppers (they are told something changed — the owner learns nothing).
+async function notifyClaimersChanged(itemId, item, owner){
+  if (!item) return;
+  const [{ data: claims }, { data: pledges }] = await Promise.all([
+    sb.from('claims').select('*').eq('item_id', itemId).eq('active', true),
+    sb.from('pledges').select('*').eq('item_id', itemId).eq('active', true)
+  ]);
+  const targets = new Set();
+  (claims||[]).forEach(c => targets.add(c.claimer_id));
+  (pledges||[]).forEach(p => targets.add(p.person_id));
+  targets.delete(owner.id);
+  for (const pid of targets) await flag(pid, itemId, t().itemChangedFlag(item.title, owner.name));
+}
+// ---------- Shopper list (claims + pools visible) ----------
+async function renderShopList(ownerId){
+  const owner = people.find(p => p.id === ownerId);
+  const { data: items } = await sb.from('items').select('*').eq('owner_id', ownerId).eq('archived', false).order('priority').order('created_at');
+  const ids = (items || []).map(i => i.id);
+  let claims = [], pledges = [], line = [];
+  if (ids.length) {
+    const [c, p, w] = await Promise.all([
+      sb.from('claims').select('*').in('item_id', ids).eq('active', true),
+      sb.from('pledges').select('*').in('item_id', ids).eq('active', true),
+      sb.from('waitlist').select('*').in('item_id', ids).eq('active', true).order('created_at')
+    ]);
+    claims = c.data || []; pledges = p.data || []; line = w.data || [];
+  }
+  const prioStars = (n) => '⭐'.repeat(4 - n);
+  const itemHtml = (it) => {
+    const claim = claims.find(c => c.item_id === it.id);
+    const pls = pledges.filter(p => p.item_id === it.id);
+    const pooled = pls.reduce((s, p) => s + Number(p.amount), 0);
+    const funded = it.price != null && pooled >= Number(it.price) && pls.length > 0;
+    const myPledge = pls.find(p => p.person_id === me.id);
+    const waiters = line.filter(w => w.item_id === it.id);
+    const myLine = waiters.find(w => w.person_id === me.id);
+    let chips = '';
+    if (claim) chips += `<span class="chip ${claim.status === 'bought' ? 'bought' : 'claimed'}">${claim.status === 'bought' ? t().statusBought(personName(claim.claimer_id)) : t().statusClaimed(personName(claim.claimer_id))}</span>`;
+    else if (funded) chips += `<span class="chip funded">${t().statusFunded}</span><span class="chip pool">${t().statusPool(pooled, it.price)}</span>`;
+    else if (pls.length) chips += `<span class="chip pool">${t().statusPool(pooled, it.price)}</span>`;
+    else chips += `<span class="chip open">${t().statusOpen}</span>`;
+    if (waiters.length) chips += `<span class="chip">${t().inLine(waiters.map(w => personName(w.person_id)).join(', '))}</span>`;
+    let actions = '';
+    if (claim && claim.claimer_id === me.id) {
+      if (claim.status === 'claimed') actions += `<button class="btn small green" data-bought="${it.id}">${t().markBought}</button>`;
+      actions += `<button class="btn small ghost" data-release="${it.id}">${t().release}</button>`;
+    } else if (!claim && !funded && !pls.length) {
+      actions += `<button class="btn small red" data-claim="${it.id}">${t().claim}</button>`;
+    }
+    if (!claim && it.price != null && !funded) {
+      actions += myPledge
+        ? `<button class="btn small ghost" data-withdraw="${it.id}">${t().release} (${money(myPledge.amount)})</button>`
+        : `<span class="rowflex"><input type="number" id="pl-${it.id}" placeholder="${t().pledgePh}" min="1" step="0.01" inputmode="decimal" style="max-width:150px"><button class="btn small green" data-pledge="${it.id}">${t().joinPool}</button></span>`;
+    }
+    if (claim && claim.claimer_id !== me.id) {
+      actions += myLine
+        ? `<button class="btn small ghost" data-unline="${it.id}">${t().leaveLine}</button><span class="muted">${t().youNext}</span>`
+        : `<button class="btn small ghost" data-line="${it.id}">${t().getInLine}</button>`;
+    }
+    return `
+      <div class="item">
+        <h3>${esc(it.title)}</h3>
+        <span class="prio">${prioStars(it.priority)}</span>
+        ${it.price != null ? `<span class="price">${money(it.price)}</span>` : `<span class="muted">${t().noPrice}</span>`}
+        ${it.notes ? `<div class="notes">${esc(it.notes)}</div>` : ''}
+        ${it.url ? `<div><a class="buy" href="${esc(it.url)}" target="_blank" rel="noopener">${t().viewLink}</a></div>` : ''}
+        <div style="margin:8px 0">${chips}</div>
+        <div class="rowflex">${actions}</div>
+      </div>`;
+  };
+  app.innerHTML = `
+    <button class="btn small ghost" id="s-back">${t().backHome}</button>
+    <div class="hat shop">${t().hatShop(me.name)}</div>
+    <div class="card"><h2>${faceFor(owner.id)} ${esc(owner.name)}</h2>
+      ${(items && items.length) ? items.map(itemHtml).join('') : `<p class="muted">${t().emptyList}</p>`}
+    </div>`;
+  $('#s-back').addEventListener('click', renderHome);
+  const rerender = () => renderShopList(ownerId);
+  app.querySelectorAll('[data-claim]').forEach(b => b.addEventListener('click', async () => {
+    const it = items.find(x => x.id === b.dataset.claim);
+    const { data: existing } = await sb.from('claims').select('*').eq('item_id', it.id).eq('active', true);
+    if (existing && existing.length) { toast(t().statusClaimed(personName(existing[0].claimer_id))); return rerender(); }
+    const { error } = await sb.from('claims').insert({ item_id: it.id, claimer_id: me.id, status: 'claimed' });
+    if (error) { toast(error.message); return; }
+    await logActivity(me.id, ownerId, it.id, 'claim', it.title);
+    toast(t().claimedOk); rerender();
+  }));
+  app.querySelectorAll('[data-bought]').forEach(b => b.addEventListener('click', async () => {
+    const it = items.find(x => x.id === b.dataset.bought);
+    await sb.from('claims').update({ status: 'bought' }).eq('item_id', it.id).eq('claimer_id', me.id).eq('active', true);
+    await logActivity(me.id, ownerId, it.id, 'bought', it.title);
+    toast(t().boughtOk); rerender();
+  }));
+  app.querySelectorAll('[data-release]').forEach(b => b.addEventListener('click', async () => {
+    if (!confirm(t().confirmRelease)) return;
+    const it = items.find(x => x.id === b.dataset.release);
+    await sb.from('claims').update({ active: false }).eq('item_id', it.id).eq('claimer_id', me.id).eq('active', true);
+    await logActivity(me.id, ownerId, it.id, 'release', it.title);
+    const { data: w } = await sb.from('waitlist').select('*').eq('item_id', it.id).eq('active', true).order('created_at').limit(1);
+    if (w && w.length) await flag(w[0].person_id, it.id, t().yourTurnFlag(it.title, owner.name));
+    toast(t().releasedOk); rerender();
+  }));
+  app.querySelectorAll('[data-pledge]').forEach(b => b.addEventListener('click', async () => {
+    const it = items.find(x => x.id === b.dataset.pledge);
+    const inp = $(`#pl-${it.id}`); const amt = Number(inp.value);
+    if (!amt || amt <= 0) { inp.focus(); return; }
+    const pls = pledges.filter(p => p.item_id === it.id);
+    const pooled = pls.reduce((s, p) => s + Number(p.amount), 0);
+    const remaining = Math.max(0, Number(it.price) - pooled);
+    const finalAmt = Math.min(amt, remaining);
+    if (finalAmt <= 0) { toast(t().poolDone); return; }
+    const { error } = await sb.from('pledges').insert({ item_id: it.id, person_id: me.id, amount: finalAmt });
+    if (error) { toast(error.message); return; }
+    await logActivity(me.id, ownerId, it.id, 'pledge', `${it.title} $${finalAmt}`);
+    toast(t().pledgedOk); rerender();
+  }));
+  app.querySelectorAll('[data-withdraw]').forEach(b => b.addEventListener('click', async () => {
+    if (!confirm(t().confirmWithdraw)) return;
+    const it = items.find(x => x.id === b.dataset.withdraw);
+    const pls = pledges.filter(p => p.item_id === it.id);
+    const pooledBefore = pls.reduce((s, p) => s + Number(p.amount), 0);
+    const wasFunded = it.price != null && pooledBefore >= Number(it.price);
+    await sb.from('pledges').update({ active: false }).eq('item_id', it.id).eq('person_id', me.id).eq('active', true);
+    await logActivity(me.id, ownerId, it.id, 'withdraw', it.title);
+    if (wasFunded) {
+      for (const p of pls) if (p.person_id !== me.id) await flag(p.person_id, it.id, t().unfundedFlag(it.title, owner.name));
+    }
+    toast(t().withdrewOk); rerender();
+  }));
+  app.querySelectorAll('[data-line]').forEach(b => b.addEventListener('click', async () => {
+    const it = items.find(x => x.id === b.dataset.line);
+    const { error } = await sb.from('waitlist').insert({ item_id: it.id, person_id: me.id });
+    if (error) { toast(error.message); return; }
+    await logActivity(me.id, ownerId, it.id, 'line', it.title);
+    toast(t().lineOk); rerender();
+  }));
+  app.querySelectorAll('[data-unline]').forEach(b => b.addEventListener('click', async () => {
+    const it = items.find(x => x.id === b.dataset.unline);
+    await sb.from('waitlist').update({ active: false }).eq('item_id', it.id).eq('person_id', me.id).eq('active', true);
+    toast(t().leftLineOk); rerender();
+  }));
+}
+
+// ---------- My claims & pools ----------
+async function renderMyClaims(){
+  const [{ data: claims }, { data: pledges }, { data: line }] = await Promise.all([
+    sb.from('claims').select('*').eq('claimer_id', me.id).eq('active', true).order('created_at', { ascending: false }),
+    sb.from('pledges').select('*').eq('person_id', me.id).eq('active', true).order('created_at', { ascending: false }),
+    sb.from('waitlist').select('*').eq('person_id', me.id).eq('active', true).order('created_at', { ascending: false })
+  ]);
+  const itemIds = [...new Set([...(claims||[]), ...(pledges||[]), ...(line||[])].map(x => x.item_id))];
+  let itemsById = {};
+  if (itemIds.length) {
+    const { data: its } = await sb.from('items').select('*').in('id', itemIds);
+    (its || []).forEach(i => itemsById[i.id] = i);
+  }
+  const row = (inner) => `<div class="item">${inner}</div>`;
+  app.innerHTML = `
+    <button class="btn small ghost" id="c-back">${t().backHome}</button>
+    <div class="card"><h2>${t().yourClaimsTitle}</h2>
+    ${(!claims?.length && !pledges?.length && !line?.length) ? `<p class="muted">${t().noClaims}</p>` : ''}
+    ${(claims||[]).map(c => { const it = itemsById[c.item_id]; if (!it) return ''; return row(`
+      <h3>${esc(it.title)}</h3>
+      <span class="chip ${c.status === 'bought' ? 'bought' : 'claimed'}">${t().youClaimed} — ${esc(personName(it.owner_id))}</span>
+      ${it.archived ? `<span class="chip claimed">⚠️ ${t().removedItems}</span>` : ''}
+      ${it.price != null ? `<span class="price">${money(it.price)}</span>` : ''}
+      ${it.url ? `<div><a class="buy" href="${esc(it.url)}" target="_blank" rel="noopener">${t().viewLink}</a></div>` : ''}
+      <label>${t().yourNote}</label>
+      <input type="text" id="note-${c.id}" value="${esc(c.private_note || '')}">
+      <div class="rowflex" style="margin-top:8px">
+        <button class="btn small ghost" data-note="${c.id}">${t().save}</button>
+        ${c.status === 'claimed' ? `<button class="btn small green" data-cbought="${c.id}">${t().markBought}</button>` : ''}
+        <button class="btn small ghost" data-crelease="${c.id}">${t().release}</button>
+      </div>`); }).join('')}
+    ${(pledges||[]).map(p => { const it = itemsById[p.item_id]; if (!it) return ''; return row(`
+      <h3>${esc(it.title)}</h3>
+      <span class="chip pool">${t().youPledged(p.amount)} — ${esc(personName(it.owner_id))}</span>
+      ${it.archived ? `<span class="chip claimed">⚠️ ${t().removedItems}</span>` : ''}
+      <div class="rowflex" style="margin-top:8px"><button class="btn small ghost" data-pwithdraw="${p.id}">${t().release}</button></div>`); }).join('')}
+    ${(line||[]).map(w => { const it = itemsById[w.item_id]; if (!it) return ''; return row(`
+      <h3>${esc(it.title)}</h3>
+      <span class="chip">${t().inLine(personName(me.id))} — ${esc(personName(it.owner_id))}</span>
+      <div class="rowflex" style="margin-top:8px"><button class="btn small ghost" data-wleave="${w.id}">${t().leaveLine}</button></div>`); }).join('')}
+    </div>`;
+  $('#c-back').addEventListener('click', renderHome);
+  app.querySelectorAll('[data-note]').forEach(b => b.addEventListener('click', async () => {
+    await sb.from('claims').update({ private_note: $(`#note-${b.dataset.note}`).value }).eq('id', b.dataset.note);
+    toast(t().noteSaved);
+  }));
+  app.querySelectorAll('[data-cbought]').forEach(b => b.addEventListener('click', async () => {
+    await sb.from('claims').update({ status: 'bought' }).eq('id', b.dataset.cbought); toast(t().boughtOk); renderMyClaims();
+  }));
+  app.querySelectorAll('[data-crelease]').forEach(b => b.addEventListener('click', async () => {
+    if (!confirm(t().confirmRelease)) return;
+    const c = (claims||[]).find(x => x.id === b.dataset.crelease);
+    await sb.from('claims').update({ active: false }).eq('id', b.dataset.crelease);
+    if (c) {
+      const it = itemsById[c.item_id];
+      const { data: w } = await sb.from('waitlist').select('*').eq('item_id', c.item_id).eq('active', true).order('created_at').limit(1);
+      if (w && w.length && it) await flag(w[0].person_id, c.item_id, t().yourTurnFlag(it.title, personName(it.owner_id)));
+    }
+    toast(t().releasedOk); renderMyClaims();
+  }));
+  app.querySelectorAll('[data-pwithdraw]').forEach(b => b.addEventListener('click', async () => {
+    if (!confirm(t().confirmWithdraw)) return;
+    await sb.from('pledges').update({ active: false }).eq('id', b.dataset.pwithdraw);
+    toast(t().withdrewOk); renderMyClaims();
+  }));
+  app.querySelectorAll('[data-wleave]').forEach(b => b.addEventListener('click', async () => {
+    await sb.from('waitlist').update({ active: false }).eq('id', b.dataset.wleave);
+    toast(t().leftLineOk); renderMyClaims();
+  }));
+}
+// ---------- Organizer ----------
+async function renderOrganizer(){
+  const { data: allPeople } = await sb.from('people').select('*').order('created_at');
+  const { data: allHelpers } = await sb.from('helpers').select('*');
+  const { data: acts } = await sb.from('activity').select('*').order('created_at', { ascending: false }).limit(40);
+  const nameOf = (id) => (allPeople.find(p => p.id === id) || {}).name || '—';
+  app.innerHTML = `
+    <button class="btn small ghost" id="g-back">${t().backHome}</button>
+    <div class="card">
+      <h2>${t().orgTitle}</h2>
+      <h3>${t().addPerson}</h3>
+      <input type="text" id="np-name" placeholder="${t().namePh}">
+      <label>${t().langLabel}</label>
+      <select id="np-lang"><option value="en">English</option><option value="es">Español</option></select>
+      <div style="height:10px"></div>
+      <button class="btn red" id="np-add">${t().addBtn}</button>
+    </div>
+    <div class="card">
+      <h2>${t().peopleTitle}</h2>
+      ${(allPeople||[]).map(p => {
+        const hs = (allHelpers||[]).filter(h => h.person_id === p.id).map(h => h.helper_id);
+        return `<div class="item">
+          <h3>${faceFor(p.id)} ${esc(p.name)} ${p.active ? '' : `<span class="chip">${t().inactive}</span>`} ${p.is_organizer ? '🛠️' : ''}</h3>
+          <div class="muted">${t().helpersFor}: ${hs.length ? hs.map(nameOf).join(', ') : '—'}</div>
+          <label>${t().helpersFor} ${esc(p.name)}:</label>
+          <div class="rowflex">
+            <select id="help-${p.id}">${(allPeople||[]).filter(x => x.id !== p.id).map(x => `<option value="${x.id}">${esc(x.name)}</option>`).join('')}</select>
+            <button class="btn small green" data-addhelp="${p.id}">${t().addBtn}</button>
+          </div>
+          <div class="rowflex" style="margin-top:6px">
+            ${hs.map(hid => `<button class="btn small ghost" data-delhelp="${p.id}:${hid}">✕ ${esc(nameOf(hid))}</button>`).join('')}
+          </div>
+          <div class="rowflex" style="margin-top:8px">
+            <button class="btn small ghost" data-pin="${p.id}">${t().setPin}</button>
+            ${p.pin ? `<button class="btn small ghost" data-unpin="${p.id}">${t().clearPin}</button>` : ''}
+            ${p.id !== me.id ? `<button class="btn small ghost" data-toggle="${p.id}">${p.active ? t().deactivate : t().reactivate}</button>` : ''}
+          </div>
+        </div>`; }).join('')}
+    </div>
+    <div class="card">
+      <h2>🔐 ${t().changeCode}</h2>
+      <input type="text" id="new-code" value="${esc(window._familyCode || '')}">
+      <div style="height:10px"></div>
+      <button class="btn ghost" id="code-save">${t().save}</button>
+    </div>
+    <div class="card">
+      <h2>${t().activityTitle}</h2>
+      <div class="log">${(acts||[]).map(a => `<div>${new Date(a.created_at).toLocaleString()} — <b>${esc(nameOf(a.actor_id))}</b> ${esc(a.type)} ${a.detail ? '· ' + esc(a.detail) : ''}</div>`).join('') || t().nothingHere}</div>
+    </div>
+    <div class="card">
+      <button class="btn ghost" id="season">${t().newSeason}</button>
+    </div>`;
+  $('#g-back').addEventListener('click', renderHome);
+  $('#np-add').addEventListener('click', async () => {
+    const name = $('#np-name').value.trim(); if (!name) { $('#np-name').focus(); return; }
+    const { error } = await sb.from('people').insert({ name, lang: $('#np-lang').value });
+    if (error) { toast(error.message); return; }
+    await loadPeople(); toast(t().savedOk); renderOrganizer();
+  });
+  app.querySelectorAll('[data-addhelp]').forEach(b => b.addEventListener('click', async () => {
+    const pid = b.dataset.addhelp; const hid = $(`#help-${pid}`).value;
+    const { error } = await sb.from('helpers').insert({ person_id: pid, helper_id: hid });
+    if (error && !String(error.message).includes('duplicate')) { toast(error.message); return; }
+    await loadPeople(); toast(t().savedOk); renderOrganizer();
+  }));
+  app.querySelectorAll('[data-delhelp]').forEach(b => b.addEventListener('click', async () => {
+    const [pid, hid] = b.dataset.delhelp.split(':');
+    await sb.from('helpers').delete().eq('person_id', pid).eq('helper_id', hid);
+    await loadPeople(); toast(t().savedOk); renderOrganizer();
+  }));
+  app.querySelectorAll('[data-pin]').forEach(b => b.addEventListener('click', async () => {
+    const pin = prompt('PIN (4 digits):'); if (!pin) return;
+    await sb.from('people').update({ pin }).eq('id', b.dataset.pin);
+    await loadPeople(); toast(t().pinSet); renderOrganizer();
+  }));
+  app.querySelectorAll('[data-unpin]').forEach(b => b.addEventListener('click', async () => {
+    await sb.from('people').update({ pin: null }).eq('id', b.dataset.unpin);
+    await loadPeople(); toast(t().pinSet); renderOrganizer();
+  }));
+  app.querySelectorAll('[data-toggle]').forEach(b => b.addEventListener('click', async () => {
+    const p = allPeople.find(x => x.id === b.dataset.toggle);
+    await sb.from('people').update({ active: !p.active }).eq('id', p.id);
+    await loadPeople(); toast(t().savedOk); renderOrganizer();
+  }));
+  $('#code-save').addEventListener('click', async () => {
+    const v = $('#new-code').value.trim(); if (!v) return;
+    await sb.from('config').update({ value: v }).eq('key', 'family_code');
+    window._familyCode = v; toast(t().codeChanged);
+  });
+  $('#season').addEventListener('click', async () => {
+    if (!confirm(t().newSeasonConfirm)) return;
+    await sb.from('items').update({ archived: true, updated_at: new Date().toISOString() }).eq('archived', false);
+    await sb.from('claims').update({ active: false }).eq('active', true);
+    await sb.from('pledges').update({ active: false }).eq('active', true);
+    await sb.from('waitlist').update({ active: false }).eq('active', true);
+    await logActivity(me.id, null, null, 'new_season', '');
+    toast(t().seasonDone); renderHome();
+  });
+}
+
+boot();
+</script>
+</body>
+</html>
