@@ -112,7 +112,15 @@ class QB {
   async _exec(){
     try {
       if (this.mode === 'insert') {
-        const p = Object.assign({}, this.payload);
+        const INSERT_DEFAULTS = {
+          items: { archived: false },
+          claims: { active: true },
+          pledges: { active: true },
+          waitlist: { active: true },
+          flags: { seen: false },
+          people: { active: true, pin: null, is_organizer: false }
+        };
+        const p = Object.assign({}, INSERT_DEFAULTS[this.coll] || {}, this.payload);
         if (!('created_at' in p)) p.created_at = new Date().toISOString();
         await fdb.collection(this.coll).add(p);
         return { data: null, error: null };
@@ -161,16 +169,33 @@ async function ensureSeed(){
     const seedPeople = [
       ['anthony', 'Anthony', 'en', true],
       ['miriam', 'Miriam', 'en', false],
-      ['wendy', 'Wendy \u2014 Mom', 'es', false],
-      ['dad', 'Dad \u2014 Anthony Sr.', 'es', false],
-      ['heidy', 'Heidy', 'en', false],
-      ['britney', 'Britney', 'en', false]
+      ['britney', 'Britney', 'en', false],
+      ['wendy-centeno', 'Wendy Centeno', 'es', false],
+      ['reina', 'Reina', 'en', false],
+      ['francisco-jr', 'Francisco Jr', 'en', false],
+      ['paco-sr', 'Paco Sr', 'en', false],
+      ['calin', 'Calin', 'en', false],
+      ['jorge', 'Jorge', 'en', false],
+      ['jacky', 'Jacky', 'en', false],
+      ['jacob', 'Jacob', 'en', false],
+      ['josefine', 'Josefine', 'en', false],
+      ['dante', 'Dante', 'en', false],
+      ['andrea', 'Andrea', 'en', false]
     ];
     seedPeople.forEach((sp, i) => {
       batch.set(fdb.collection('people').doc(sp[0]), { name: sp[1], lang: sp[2], pin: null, is_organizer: sp[3], active: true, created_at: ts(i) });
     });
-    batch.set(fdb.collection('helpers').doc('wendy_anthony'), { person_id: 'wendy', helper_id: 'anthony', created_at: ts(10) });
-    batch.set(fdb.collection('config').doc('family_code'), { key: 'family_code', value: 'navidad' });
+    const seedHelpers = [
+      ['wendy-centeno', 'anthony'], ['wendy-centeno', 'britney'],
+      ['reina', 'francisco-jr'], ['paco-sr', 'francisco-jr'],
+      ['jacob', 'jacky'], ['jacob', 'jorge'],
+      ['andrea', 'jacky'], ['andrea', 'jorge'],
+      ['andrea', 'calin'], ['dante', 'calin']
+    ];
+    seedHelpers.forEach((sh, i) => {
+      batch.set(fdb.collection('helpers').doc(sh[0] + '_' + sh[1]), { person_id: sh[0], helper_id: sh[1], created_at: ts(100 + i) });
+    });
+    batch.set(fdb.collection('config').doc('family_code'), { key: 'family_code', value: 'centeno' });
     await batch.commit();
   } catch (e) {}
 }
@@ -192,7 +217,7 @@ const T = {
     pricePh: "Price in $ (optional)", notesPh: "Notes (optional) — size, color, where to find it",
     prio: "How much do you want it?", prio1: "⭐⭐⭐ Really want it", prio2: "⭐⭐ Would love it", prio3: "⭐ Nice to have",
     save: "Save", cancel: "Cancel", edit: "Edit", remove: "Remove", restore: "Restore", removedItems: "Removed items (tap Restore to bring one back)",
-    yourItems: "On the list", emptyList: "Nothing here yet. Add the first item!",
+    yourItems: "On the list", emptyList: "Nothing here yet. Add the first item!", emptyListShop: "Nothing here yet.",
     dupWarn: (t)=>`This looks similar to "${t}", which is already on this list. Add it anyway?`,
     viewLink: "View / buy →", noPrice: "No price set",
     statusOpen: "Open", statusClaimed: (n)=>`Claimed by ${n}`, statusBought: (n)=>`Bought by ${n}`,
@@ -241,7 +266,7 @@ const T = {
     pricePh: "Precio en $ (opcional)", notesPh: "Notas (opcional) — talla, color, dónde encontrarlo",
     prio: "¿Cuánto lo quieres?", prio1: "⭐⭐⭐ Lo quiero mucho", prio2: "⭐⭐ Me encantaría", prio3: "⭐ Estaría bien",
     save: "Guardar", cancel: "Cancelar", edit: "Editar", remove: "Quitar", restore: "Restaurar", removedItems: "Artículos quitados (toca Restaurar para devolver uno)",
-    yourItems: "En la lista", emptyList: "Todavía no hay nada. ¡Agrega el primer artículo!",
+    yourItems: "En la lista", emptyList: "Todavía no hay nada. ¡Agrega el primer artículo!", emptyListShop: "Todavía no hay nada.",
     dupWarn: (t)=>`Esto se parece a "${t}", que ya está en esta lista. ¿Agregarlo de todos modos?`,
     viewLink: "Ver / comprar →", noPrice: "Sin precio",
     statusOpen: "Disponible", statusClaimed: (n)=>`Apartado por ${n}`, statusBought: (n)=>`Comprado por ${n}`,
@@ -623,7 +648,7 @@ async function renderShopList(ownerId){
     <button class="btn small ghost" id="s-back">${t().backHome}</button>
     <div class="hat shop">${t().hatShop(me.name)}</div>
     <div class="card"><h2>${faceFor(owner.id)} ${esc(owner.name)}</h2>
-      ${(items && items.length) ? items.map(itemHtml).join('') : `<p class="muted">${t().emptyList}</p>`}
+      ${(items && items.length) ? items.map(itemHtml).join('') : `<p class="muted">${t().emptyListShop}</p>`}
     </div>`;
   $('#s-back').addEventListener('click', renderHome);
   const rerender = () => renderShopList(ownerId);
