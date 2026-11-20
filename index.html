@@ -340,6 +340,18 @@ const esc = (s) => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&
 const money = (n) => (n == null || n === '') ? null : '$' + Number(n).toLocaleString('en-US', {maximumFractionDigits: 2});
 
 function toast(msg){ const el = $('#toast'); el.textContent = msg; el.classList.remove('hidden'); setTimeout(()=>el.classList.add('hidden'), 3200); }
+function uiConfirm(msg){
+  return new Promise(res => {
+    const ov = document.createElement('div');
+    ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;z-index:9999;padding:20px';
+    ov.innerHTML = '<div class="card" style="max-width:340px;width:100%;text-align:center"><p style="margin-bottom:14px">' + esc(msg) + '</p><div class="rowflex" style="justify-content:center;gap:10px"><button class="btn green" data-ok="1">OK</button><button class="btn ghost" data-ok="0">' + esc(t().cancel) + '</button></div></div>';
+    document.body.appendChild(ov);
+    ov.addEventListener('click', e => {
+      const b = e.target.closest('[data-ok]'); if (!b) return;
+      ov.remove(); res(b.dataset.ok === '1');
+    });
+  });
+}
 // Item photos: picked files (photos or screenshots) are shrunk in the browser and stored
 // with the item, so no separate photo service is needed.
 const photoState = {};
@@ -597,7 +609,7 @@ async function renderOwnerList(ownerId){
     if (!title) { $('#i-title').focus(); return; }
     const all = [...(items||[]), ...(removed||[])];
     const dup = all.find(x => similar(x.title, title));
-    if (dup && !confirm(t().dupWarn(dup.title))) return;
+    if (dup && !(await uiConfirm(t().dupWarn(dup.title)))) return;
     const payload = {
       owner_id: ownerId, title,
       url: $('#i-url').value.trim() || null,
@@ -613,7 +625,7 @@ async function renderOwnerList(ownerId){
     toast(t().savedOk); renderOwnerList(ownerId);
   });
   app.querySelectorAll('[data-del]').forEach(b => b.addEventListener('click', async () => {
-    if (!confirm(t().confirmRemove)) return;
+    if (!(await uiConfirm(t().confirmRemove))) return;
     const itemId = b.dataset.del;
     const it = (items||[]).find(x => x.id === itemId);
     await notifyClaimersChanged(itemId, it, owner);
@@ -796,7 +808,7 @@ async function renderShopList(ownerId){
     toast(t().boughtOk); rerender();
   }));
   app.querySelectorAll('[data-release]').forEach(b => b.addEventListener('click', async () => {
-    if (!confirm(t().confirmRelease)) return;
+    if (!(await uiConfirm(t().confirmRelease))) return;
     const it = items.find(x => x.id === b.dataset.release);
     await sb.from('claims').update({ active: false }).eq('item_id', it.id).eq('claimer_id', me.id).eq('active', true);
     await logActivity(me.id, ownerId, it.id, 'release', it.title);
@@ -819,7 +831,7 @@ async function renderShopList(ownerId){
     toast(t().pledgedOk); rerender();
   }));
   app.querySelectorAll('[data-withdraw]').forEach(b => b.addEventListener('click', async () => {
-    if (!confirm(t().confirmWithdraw)) return;
+    if (!(await uiConfirm(t().confirmWithdraw))) return;
     const it = items.find(x => x.id === b.dataset.withdraw);
     const pls = pledges.filter(p => p.item_id === it.id);
     const pooledBefore = pls.reduce((s, p) => s + Number(p.amount), 0);
@@ -898,7 +910,7 @@ async function renderMyClaims(){
     await sb.from('claims').update({ status: 'bought' }).eq('id', b.dataset.cbought); toast(t().boughtOk); renderMyClaims();
   }));
   app.querySelectorAll('[data-crelease]').forEach(b => b.addEventListener('click', async () => {
-    if (!confirm(t().confirmRelease)) return;
+    if (!(await uiConfirm(t().confirmRelease))) return;
     const c = (claims||[]).find(x => x.id === b.dataset.crelease);
     await sb.from('claims').update({ active: false }).eq('id', b.dataset.crelease);
     if (c) {
@@ -909,7 +921,7 @@ async function renderMyClaims(){
     toast(t().releasedOk); renderMyClaims();
   }));
   app.querySelectorAll('[data-pwithdraw]').forEach(b => b.addEventListener('click', async () => {
-    if (!confirm(t().confirmWithdraw)) return;
+    if (!(await uiConfirm(t().confirmWithdraw))) return;
     await sb.from('pledges').update({ active: false }).eq('id', b.dataset.pwithdraw);
     toast(t().withdrewOk); renderMyClaims();
   }));
@@ -1008,7 +1020,7 @@ async function renderOrganizer(){
     window._familyCode = v; toast(t().codeChanged);
   });
   $('#season').addEventListener('click', async () => {
-    if (!confirm(t().newSeasonConfirm)) return;
+    if (!(await uiConfirm(t().newSeasonConfirm))) return;
     await sb.from('items').update({ archived: true, updated_at: new Date().toISOString() }).eq('archived', false);
     await sb.from('claims').update({ active: false }).eq('active', true);
     await sb.from('pledges').update({ active: false }).eq('active', true);
