@@ -106,7 +106,12 @@ class QB {
   then(res, rej){ return this._exec().then(res, rej); }
   _query(){
     let q = fdb.collection(this.coll);
-    for (const flt of this.filters) q = q.where(flt.f, flt.op, flt.v);
+    for (const flt of this.filters) {
+      // Firestore document ids are not stored as a field; an 'id' filter must
+      // target the document path itself or it silently matches nothing.
+      const field = flt.f === 'id' ? firebase.firestore.FieldPath.documentId() : flt.f;
+      q = q.where(field, flt.op, flt.v);
+    }
     return q;
   }
   async _exec(){
@@ -511,8 +516,10 @@ function similar(a, b){
   if (!a || !b) return false;
   if (a.includes(b) || b.includes(a)) return true;
   const aw = new Set(a.split(/\W+/).filter(w => w.length > 2));
-  const bw = b.split(/\W+/).filter(w => w.length > 2);
-  return bw.some(w => aw.has(w));
+  const bw = new Set(b.split(/\W+/).filter(w => w.length > 2));
+  if (!aw.size || !bw.size) return false;
+  let shared = 0; bw.forEach(w => { if (aw.has(w)) shared++; });
+  return shared / Math.min(aw.size, bw.size) >= 0.6;
 }
 async function renderOwnerList(ownerId){
   const owner = people.find(p => p.id === ownerId);
