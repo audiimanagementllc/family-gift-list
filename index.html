@@ -213,6 +213,7 @@ const T = {
     codeWrong: "That code doesn't match. Check with Anthony and try again.",
     whoTitle: "Who is using the app?", whoHelp: "Tap your name. No password — just don't tap someone else's name by mistake!",
     pinTitle: "Enter your PIN", pinHelp: "This name is protected with a PIN.", pinWrong: "Wrong PIN. Try again.",
+    setPinTitle: "First time here?", setPinHelp: "Confirm it's really you: create your PIN using your birthday — 4 digits, month then day. For example, April 23 is 0423. You'll only need it on a new phone or after switching people.", pinConfirmPh: "Enter it again", pinMismatch: "Those didn't match. Try again.", pinFormat: "Use 4 digits: month then day (e.g. 0423).", setPinBtn: "Set my PIN",
     hello: "Hi", countdown: "days until Christmas 🎄", today: "It's Christmas Day! 🎄",
     hatShop: (n)=>`🛍️ You are shopping as ${n}. You can see claims and pools on other people's lists.`,
     hatHelp: (n)=>`🤝 You are helping ${n}. This is their list exactly as they see it — claims stay hidden here so nothing is spoiled.`,
@@ -273,6 +274,7 @@ const T = {
     codeWrong: "Ese código no coincide. Pregúntale a Anthony e inténtalo de nuevo.",
     whoTitle: "¿Quién está usando la aplicación?", whoHelp: "Toca tu nombre. No hay contraseña — ¡solo no toques el nombre de otra persona por error!",
     pinTitle: "Escribe tu PIN", pinHelp: "Este nombre está protegido con un PIN.", pinWrong: "PIN incorrecto. Inténtalo de nuevo.",
+    setPinTitle: "¿Primera vez aquí?", setPinHelp: "Confirma que eres tú: crea tu PIN con tu cumpleaños — 4 dígitos, mes y luego día. Por ejemplo, el 23 de abril es 0423. Solo lo necesitarás en un teléfono nuevo o después de cambiar de persona.", pinConfirmPh: "Escríbelo otra vez", pinMismatch: "No coinciden. Inténtalo de nuevo.", pinFormat: "Usa 4 dígitos: mes y luego día (ej. 0423).", setPinBtn: "Guardar mi PIN",
     hello: "Hola", countdown: "días para Navidad 🎄", today: "¡Es Navidad! 🎄",
     hatShop: (n)=>`🛍️ Estás comprando como ${n}. Puedes ver los apartados y los fondos en las listas de los demás.`,
     hatHelp: (n)=>`🤝 Estás ayudando a ${n}. Esta es su lista tal como la ve — los apartados se quedan ocultos aquí para no arruinar la sorpresa.`,
@@ -476,7 +478,29 @@ async function pickPerson(id){
     $('#pin-in').addEventListener('keydown', e => { if (e.key === 'Enter') go(); });
     return;
   }
-  me = p; finishPick();
+  // No PIN yet: first-run setup — the person sets their own birthday PIN.
+  app.innerHTML = `
+    <div class="card">
+      <h2>🔢 ${t().setPinTitle} — ${esc(p.name)}</h2>
+      <p class="muted">${t().setPinHelp}</p>
+      <input type="password" id="pin-new" inputmode="numeric" autocomplete="off" maxlength="4" placeholder="MMDD">
+      <div style="height:10px"></div>
+      <input type="password" id="pin-new2" inputmode="numeric" autocomplete="off" maxlength="4" placeholder="${t().pinConfirmPh}">
+      <div style="height:12px"></div>
+      <button class="btn red" id="pin-set">${t().setPinBtn}</button>
+      <button class="btn ghost" id="pin-back2">${t().back}</button>
+    </div>`;
+  $('#pin-back2').addEventListener('click', renderWho);
+  const setGo = async () => {
+    const v = $('#pin-new').value.trim(), v2 = $('#pin-new2').value.trim();
+    if (!/^\d{4}$/.test(v)) { toast(t().pinFormat); return; }
+    if (v !== v2) { toast(t().pinMismatch); return; }
+    const { error } = await sb.from('people').update({ pin: v }).eq('id', p.id);
+    if (error) { toast(error.message); return; }
+    p.pin = v; me = p; finishPick();
+  };
+  $('#pin-set').addEventListener('click', setGo);
+  $('#pin-new2').addEventListener('keydown', e => { if (e.key === 'Enter') setGo(); });
 }
 function finishPick(){
   localStorage.setItem('fgl_person', me.id);
@@ -594,7 +618,7 @@ async function renderOwnerList(ownerId){
             <div class="rowflex" style="margin-top:6px"><button class="btn small green" data-answer="${q.id}">${t().answerBtn}</button><span class="chip claimed">${t().unanswered}</span></div>`}
         </div>`).join('') : `<p class="muted">${t().noQs}</p>`}
     </div>
-    ${(removed && removed.length) ? `<div class="card"><h2>${t().removedItems}</h2>${removed.map(it => `
+    ${(!isHelper && removed && removed.length) ? `<div class="card"><h2>${t().removedItems}</h2>${removed.map(it => `
       <div class="item"><h3>${esc(it.title)}</h3><button class="btn small green" data-restore="${it.id}">${t().restore}</button></div>`).join('')}</div>` : ''}`;
   $('#o-back').addEventListener('click', renderHome);
   photoState.add = null; wirePhoto('i-photo', 'i-photo-prev', 'add');
