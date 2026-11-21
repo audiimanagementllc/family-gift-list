@@ -326,7 +326,11 @@ const T = {
     ssDrawFail: "Couldn't find a valid draw with those exclusions — ask Anthony.",
     ssBudgetLabel: "Gift budget cap ($)", ssSaveBudget: "Save budget",
     ssOrgNote: "Assignments are secret — even you can't see who got who. Each person sees only their own.",
-    someoneAnon: "someone"
+    someoneAnon: "someone",
+    sortBy: "Sort:", sortStars: "⭐ Most wanted first", sortPriceAsc: "💲 Price: low to high", sortPriceDesc: "💲 Price: high to low", sortNewest: "🆕 Newest first", sortName: "🔤 Name A–Z",
+    filterAll: "All items", filterOpen: "Open only", filterClaimed: "Claimed only", filterNone: "Nothing matches that filter.",
+    newItem: "New", shopSummary: "🧾 Your shopping so far", sumClaimed: (v)=>`Claimed ${v}`, sumBought: (v)=>`Bought ${v}`, sumPledged: (v)=>`Chipped in ${v}`,
+    coveredChip: (a,b)=>`✓ ${a}/${b} covered`
   },
   es: {
     appTitle: "🎄 Listas de Regalos de la Familia", loading: "Cargando…", codeTitle: "Código de la familia",
@@ -401,7 +405,11 @@ const T = {
     ssDrawFail: "No se encontró un sorteo válido con esas exclusiones — pregunta a Anthony.",
     ssBudgetLabel: "Tope de presupuesto ($)", ssSaveBudget: "Guardar presupuesto",
     ssOrgNote: "Las asignaciones son secretas — ni tú puedes ver a quién le tocó quién. Cada persona ve solo la suya.",
-    someoneAnon: "alguien"
+    someoneAnon: "alguien",
+    sortBy: "Ordenar:", sortStars: "⭐ Más deseados primero", sortPriceAsc: "💲 Precio: de menor a mayor", sortPriceDesc: "💲 Precio: de mayor a menor", sortNewest: "🆕 Más nuevos primero", sortName: "🔤 Nombre A–Z",
+    filterAll: "Todo", filterOpen: "Solo disponibles", filterClaimed: "Solo apartados", filterNone: "Nada coincide con ese filtro.",
+    newItem: "Nuevo", shopSummary: "🧾 Tus compras hasta ahora", sumClaimed: (v)=>`Apartado ${v}`, sumBought: (v)=>`Comprado ${v}`, sumPledged: (v)=>`Aportado ${v}`,
+    coveredChip: (a,b)=>`✓ ${a}/${b} cubiertos`
   }
 };
 // ---------- State ----------
@@ -648,6 +656,20 @@ async function renderHome(){
   const effOwners = new Set(people.map(p => listOwnerId(p)));
   const allItems = (allItemsRes.data || []).filter(i => inSpace.has(i.owner_id) || effOwners.has(i.owner_id));
   const itemCounts = {}; allItems.forEach(i => { itemCounts[i.owner_id] = (itemCounts[i.owner_id] || 0) + 1; });
+  const coveredByOwner = {};
+  if (!isSS() && allItems.length) {
+    const allIds = allItems.map(i => i.id);
+    const [clRes, plRes] = await Promise.all([
+      sb.from('claims').select('*').in('item_id', allIds).eq('active', true),
+      sb.from('pledges').select('*').in('item_id', allIds).eq('active', true)
+    ]);
+    const claimedIds = new Set((clRes.data || []).map(c => c.item_id));
+    const poolByItem = {}; (plRes.data || []).forEach(p => { poolByItem[p.item_id] = (poolByItem[p.item_id] || 0) + Number(p.amount); });
+    allItems.forEach(i => {
+      const covered = claimedIds.has(i.id) || (i.price != null && (poolByItem[i.id] || 0) >= Number(i.price) && (poolByItem[i.id] || 0) > 0);
+      if (covered) coveredByOwner[i.owner_id] = (coveredByOwner[i.owner_id] || 0) + 1;
+    });
+  }
   let ssCard = '';
   if (isSS()) {
     let inner = `<h2>${t().ssTitle}</h2>`;
@@ -663,6 +685,7 @@ async function renderHome(){
     ssCard = `<div class="card">${inner}</div>`;
   }
   const emptyChip = (pid) => itemCounts[pid] ? '' : ` <span class="chip">${t().emptyBadge}</span>`;
+  const coverChip = (oid) => { const tot = itemCounts[oid] || 0; if (!tot || isSS()) return ''; const cov = coveredByOwner[oid] || 0; return ` <span class="chip ${cov >= tot ? 'bought' : 'open'}">${t().coveredChip(cov, tot)}</span>`; };
   app.innerHTML = `
     ${d > 0 ? `<div class="countdown">🎄 ${d} ${t().countdown}</div>` : (d === 0 ? `<div class="countdown">${t().today}</div>` : '')}
     ${(myFlags && myFlags.length) ? `<div class="card"><h2>📣 ${t().flagsTitle}</h2>${myFlags.map(f => `<div class="flag">${esc(f.message)}<br><button class="btn small ghost" data-flag="${f.id}">${t().flagDismiss}</button></div>`).join('')}</div>` : ''}
@@ -672,7 +695,7 @@ async function renderHome(){
     ${helped.length ? `<div class="card"><h2>${t().helpLists}</h2>${helped.map(p => `<button class="btn ghost" data-help="${p.id}">🤝 ${esc(p.name)}${emptyChip(listOwnerId(p))}</button>`).join('')}</div>` : ''}
     <div class="card">
       <h2>${t().shopFor}</h2>
-      ${others.map(p => `<button class="btn ghost" data-shop="${p.id}">${faceFor(p.id)} ${esc(p.name)}${emptyChip(listOwnerId(p))}</button>`).join('')}
+      ${others.map(p => `<button class="btn ghost" data-shop="${p.id}">${faceFor(p.id)} ${esc(p.name)}${emptyChip(listOwnerId(p))}${coverChip(listOwnerId(p))}</button>`).join('')}
     </div>
     ${isSS() ? '' : `<button class="btn green" id="h-claims">${t().myClaims}</button>`}
     ${me.is_organizer ? `<button class="btn ghost" id="h-org">${t().organizer}</button>` : ''}
@@ -691,6 +714,41 @@ async function renderHome(){
     await sb.from('flags').update({ seen: true }).eq('id', b.dataset.flag); renderHome();
   }));
 }
+// ---------- Sorting / filtering (shared by owner + shopper lists) ----------
+let uiSort = 'stars';
+let uiFilter = 'all';
+function sortItems(list){
+  const a = [...(list || [])];
+  const byCreated = (x, y) => new Date(x.created_at) - new Date(y.created_at);
+  if (uiSort === 'priceAsc')  return a.sort((x, y) => (x.price ?? Infinity) - (y.price ?? Infinity) || byCreated(x, y));
+  if (uiSort === 'priceDesc') return a.sort((x, y) => (y.price ?? -1) - (x.price ?? -1) || byCreated(x, y));
+  if (uiSort === 'newest')    return a.sort((x, y) => new Date(y.created_at) - new Date(x.created_at));
+  if (uiSort === 'name')      return a.sort((x, y) => String(x.title).localeCompare(String(y.title)));
+  return a.sort((x, y) => (x.priority - y.priority) || byCreated(x, y));
+}
+function sortBarHtml(withFilter){
+  return `<div class="rowflex" style="margin:0 0 12px">
+    <label style="margin:0">${t().sortBy}</label>
+    <select id="ui-sort" style="width:auto;flex:1;min-width:160px;padding:10px">
+      <option value="stars" ${uiSort==='stars'?'selected':''}>${t().sortStars}</option>
+      <option value="priceAsc" ${uiSort==='priceAsc'?'selected':''}>${t().sortPriceAsc}</option>
+      <option value="priceDesc" ${uiSort==='priceDesc'?'selected':''}>${t().sortPriceDesc}</option>
+      <option value="newest" ${uiSort==='newest'?'selected':''}>${t().sortNewest}</option>
+      <option value="name" ${uiSort==='name'?'selected':''}>${t().sortName}</option>
+    </select>
+    ${withFilter ? `<select id="ui-filter" style="width:auto;padding:10px">
+      <option value="all" ${uiFilter==='all'?'selected':''}>${t().filterAll}</option>
+      <option value="open" ${uiFilter==='open'?'selected':''}>${t().filterOpen}</option>
+      <option value="claimed" ${uiFilter==='claimed'?'selected':''}>${t().filterClaimed}</option>
+    </select>` : ``}
+  </div>`;
+}
+function wireSortBar(rerender){
+  const s = $('#ui-sort'); if (s) s.addEventListener('change', () => { uiSort = s.value; rerender(); });
+  const f = $('#ui-filter'); if (f) f.addEventListener('change', () => { uiFilter = f.value; rerender(); });
+}
+function isNewItem(it){ return it.created_at && (Date.now() - new Date(it.created_at).getTime()) < 7*24*3600*1000; }
+function newBadge(it){ return isNewItem(it) ? `<span class="chip" style="background:#ffe9a8;color:#6d5200">✨ ${t().newItem}</span>` : ''; }
 // ---------- Owner list (self or helper view — claims NEVER loaded here) ----------
 function similar(a, b){
   a = (a||'').toLowerCase().trim(); b = (b||'').toLowerCase().trim();
@@ -715,6 +773,7 @@ async function renderOwnerList(ownerId, nav){
   const items = itemsRes.data, removed = removedRes.data, qsRaw = qsRes.data;
   const qsList = [...(qsRaw || [])].sort((a, b) => (a.answer ? 1 : 0) - (b.answer ? 1 : 0));
   const prioStars = (n) => '⭐'.repeat(4 - n);
+  const sorted = sortItems(items || []);
   app.innerHTML = `
     <button class="btn small ghost" id="o-back">${t().backHome}</button>
     ${isHelper ? `<div class="hat help">${t().hatHelp(owner.name)}<br><button class="btn small ghost" id="o-shop" style="margin-top:8px">${t().viewAsShopper}</button></div>` : ``}
@@ -740,8 +799,9 @@ async function renderOwnerList(ownerId, nav){
     </div>
     <div class="card">
       <h2>${t().yourItems}</h2>
+      ${sortBarHtml(false)}
       <div id="o-items">
-      ${(items && items.length) ? items.map(it => `
+      ${(sorted.length) ? sorted.map(it => `
         <div class="item">
           <h3>${esc(it.title)}</h3>
           ${itemImg(it)}
@@ -749,6 +809,7 @@ async function renderOwnerList(ownerId, nav){
           ${it.price != null ? `<span class="price">${money(it.price)}</span>` : `<span class="muted">${t().noPrice}</span>`}
           ${it.notes ? `<div class="notes">${esc(it.notes)}</div>` : ''}
           ${it.url ? `<div><a class="buy" href="${esc(it.url)}" target="_blank" rel="noopener">${t().viewLink}</a></div>` : ''}
+          <div style="margin-top:6px">${newBadge(it)}</div>
           <div class="rowflex" style="margin-top:8px">
             <button class="btn small ghost" data-edit="${it.id}">${t().edit}</button>
             <button class="btn small ghost" data-del="${it.id}">${t().remove}</button>
@@ -771,6 +832,7 @@ async function renderOwnerList(ownerId, nav){
     ${(!isHelper && removed && removed.length) ? `<div class="card"><h2>${t().removedItems}</h2>${removed.map(it => `
       <div class="item"><h3>${esc(it.title)}</h3><button class="btn small green" data-restore="${it.id}">${t().restore}</button></div>`).join('')}</div>` : ''}`;
   $('#o-back').addEventListener('click', renderHome);
+  wireSortBar(() => renderOwnerList(ownerId));
   photoState.add = null; wirePhoto('i-photo', 'i-photo-prev', 'add');
   app.querySelectorAll('[data-answer]').forEach(b => b.addEventListener('click', async () => {
     const ans = $(`#ans-${b.dataset.answer}`).value.trim(); if (!ans) return;
@@ -900,6 +962,14 @@ async function renderShopList(ownerId, nav){
   const dispName = (id) => people.find(p => p.id === id) ? personName(id) : t().someoneAnon;   // never show the other family's names
   const { data: shopQs } = await sb.from('questions').select('*').eq('owner_id', effOwner).order('created_at');
   const prioStars = (n) => '⭐'.repeat(4 - n);
+  const claimsOn = !isSS() || shared;
+  const statusOf = (it) => {
+    if (claims.find(c => c.item_id === it.id)) return 'claimed';
+    const pls = pledges.filter(p => p.item_id === it.id);
+    if (it.price != null && pls.length && pls.reduce((s, p) => s + Number(p.amount), 0) >= Number(it.price)) return 'claimed';
+    return 'open';
+  };
+  const shownItems = sortItems((items || []).filter(it => !claimsOn || uiFilter === 'all' || statusOf(it) === uiFilter));
   const itemHtml = (it) => {
     const claim = claims.find(c => c.item_id === it.id);
     const pls = pledges.filter(p => p.item_id === it.id);
@@ -940,6 +1010,7 @@ async function renderShopList(ownerId, nav){
         ${it.price != null ? `<span class="price">${money(it.price)}</span>` : `<span class="muted">${t().noPrice}</span>`}
         ${it.notes ? `<div class="notes">${esc(it.notes)}</div>` : ''}
         ${it.url ? `<div><a class="buy" href="${esc(it.url)}" target="_blank" rel="noopener">${t().viewLink}</a></div>` : ''}
+        ${newBadge(it)}
         <div style="margin:8px 0">${chips}</div>
         <div class="rowflex">${actions}</div>
       </div>`;
@@ -948,7 +1019,8 @@ async function renderShopList(ownerId, nav){
     <button class="btn small ghost" id="s-back">${t().backHome}</button>
     <div class="hat shop">${t().hatShop(me.name)}</div>
     <div class="card"><h2>${faceFor(owner.id)} ${esc(owner.name)}</h2>
-      ${(items && items.length) ? items.map(itemHtml).join('') : `<p class="muted">${t().emptyListShop}</p>`}
+      ${sortBarHtml(claimsOn)}
+      ${(items && items.length) ? (shownItems.length ? shownItems.map(itemHtml).join('') : `<p class="muted">${t().filterNone}</p>`) : `<p class="muted">${t().emptyListShop}</p>`}
     </div>
     <div class="card">
       <h2>${t().askTitle}</h2>
@@ -964,6 +1036,7 @@ async function renderShopList(ownerId, nav){
     </div>`;
   $('#s-back').addEventListener('click', renderHome);
   const rerender = () => renderShopList(ownerId);
+  wireSortBar(rerender);
   $('#q-ask').addEventListener('click', async () => {
     const qtext = $('#q-text').value.trim(); if (!qtext) { $('#q-text').focus(); return; }
     const { error } = await sb.from('questions').insert({ owner_id: effOwner, question: qtext });
@@ -1050,10 +1123,15 @@ async function renderMyClaims(){
     const { data: its } = await sb.from('items').select('*').in('id', itemIds);
     (its || []).forEach(i => itemsById[i.id] = i);
   }
+  const priceOf = (id) => Number(itemsById[id]?.price) || 0;
+  const claimTotal = (claims || []).reduce((s, c) => s + priceOf(c.item_id), 0);
+  const boughtTotal = (claims || []).filter(c => c.status === 'bought').reduce((s, c) => s + priceOf(c.item_id), 0);
+  const pledgeTotal = (pledges || []).reduce((s, p) => s + Number(p.amount), 0);
   const row = (inner) => `<div class="item">${inner}</div>`;
   app.innerHTML = `
     <button class="btn small ghost" id="c-back">${t().backHome}</button>
     <div class="card"><h2>${t().yourClaimsTitle}</h2>
+    ${(claims?.length || pledges?.length) ? `<p style="font-size:17px;margin:0 0 6px"><b>${t().shopSummary}</b></p><div style="margin-bottom:12px"><span class="chip claimed">${t().sumClaimed(money(claimTotal))}</span><span class="chip bought">${t().sumBought(money(boughtTotal))}</span>${pledgeTotal ? `<span class="chip pool">${t().sumPledged(money(pledgeTotal))}</span>` : ''}</div>` : ''}
     ${(!claims?.length && !pledges?.length && !line?.length) ? `<p class="muted">${t().noClaims}</p>` : ''}
     ${(claims||[]).map(c => { const it = itemsById[c.item_id]; if (!it) return ''; return row(`
       <h3>${esc(it.title)}</h3>
