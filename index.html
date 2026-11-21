@@ -27,7 +27,7 @@
   }
   *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
   ::selection{background:#f0d48a;}
-  body{margin:0; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif; color:var(--ink); font-size:18px; line-height:1.45;
+  body{margin:0; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif; color:var(--ink); font-size:18px; line-height:1.45; -webkit-font-smoothing:antialiased;
     background-color:var(--bg);
     background-image:
       radial-gradient(rgba(184,134,11,.055) 1.2px, transparent 1.6px),
@@ -47,7 +47,7 @@
     border-bottom:3px solid var(--gold-soft);
     box-shadow:0 4px 18px rgba(124,18,18,.35);}
   header .row{display:flex; align-items:center; justify-content:space-between; gap:10px; max-width:760px; margin:0 auto;}
-  header h1{font-family:var(--serif); font-size:24px; margin:0; font-weight:800; letter-spacing:.3px; text-shadow:0 1px 3px rgba(0,0,0,.25);}
+  header h1{font-family:var(--serif); font-size:26px; margin:0; font-weight:800; letter-spacing:.3px; text-shadow:0 1px 3px rgba(0,0,0,.25);}
   header .sub{font-size:13px; opacity:.92; margin-top:2px;}
   .langbtn{background:rgba(255,255,255,.14); color:#fff; border:1px solid rgba(255,255,255,.55); border-radius:999px; padding:7px 14px; font-size:15px; font-weight:700; cursor:pointer; backdrop-filter:blur(3px);}
   .langbtn:active{background:rgba(255,255,255,.3);}
@@ -78,7 +78,9 @@
   .item{border:1px solid var(--line); border-radius:16px; padding:15px; margin:0 0 12px; background:#fffefa;
     box-shadow:0 2px 8px -6px rgba(101,67,33,.35);}
   .item h3{font-family:var(--serif); font-weight:700; margin:0 0 4px; font-size:20px; color:#3a2c22;}
-  .item .price{font-weight:800; color:var(--green-dark); font-size:19px;}
+  .item .price{font-family:var(--serif); font-weight:800; color:var(--green-dark); font-size:20px; letter-spacing:.2px;}
+  .card h2{border-bottom:2px solid rgba(201,151,0,.22); padding-bottom:8px;}
+  footer{text-align:center; color:var(--muted); font-family:var(--serif); font-style:italic; font-size:15px; padding:2px 16px 30px;}
   .item .notes{color:var(--muted); font-size:16px; margin-top:2px;}
   .item a.buy{color:var(--red); font-weight:700; word-break:break-all;}
   .chip{display:inline-block; background:var(--chip); border:1px solid rgba(101,67,33,.08); border-radius:999px; padding:4px 12px; font-size:14px; font-weight:700; margin:2px 4px 2px 0;}
@@ -87,6 +89,7 @@
   .chip.pool{background:#e2ebfd; color:#274b8f;}
   .chip.funded{background:#274b8f; color:#fff;}
   .chip.bought{background:#2f2a26; color:#fff;}
+  .chip.wrapped{background:var(--green); color:#fff;}
   .prio{color:var(--gold-soft); font-size:16px; letter-spacing:2px;}
   label{display:block; font-weight:700; margin:12px 0 6px; font-size:16px;}
   input[type=text],input[type=url],input[type=number],input[type=password],select,textarea{width:100%; padding:14px; font-size:18px; border:1.5px solid var(--line); border-radius:12px; background:#fffefa; color:var(--ink);}
@@ -98,7 +101,8 @@
   .hidden{display:none !important;}
   .countdown{text-align:center; font-family:var(--serif); font-size:19px; font-weight:700; color:#ffeec4; letter-spacing:.2px;
     background:linear-gradient(135deg,#8f1d16,#b3271e 60%,#8f1d16); border:1px solid var(--gold-soft); border-radius:14px; padding:12px; margin:0 0 14px;
-    box-shadow:0 8px 18px -12px rgba(124,18,18,.8); text-shadow:0 1px 2px rgba(0,0,0,.3);}
+    box-shadow:0 8px 18px -12px rgba(124,18,18,.8); text-shadow:0 1px 2px rgba(0,0,0,.3); animation:glow 3.2s ease-in-out infinite;}
+  @keyframes glow{ 0%,100%{ box-shadow:0 8px 18px -12px rgba(124,18,18,.85);} 50%{ box-shadow:0 8px 28px -10px rgba(201,151,0,.8);} }
   .rowflex{display:flex; gap:8px; flex-wrap:wrap; align-items:center;}
   .back{background:none; border:none; color:#fff; font-size:16px; font-weight:700; cursor:pointer; padding:4px 0;}
   h2{font-family:var(--serif); font-size:25px; font-weight:800; color:#8f1d16; margin:4px 0 12px; letter-spacing:.2px;}
@@ -108,7 +112,7 @@
 </style>
 </head>
 <body>
-<div class="snow" aria-hidden="true"><i style="left:36.8%;width:4px;height:4px;opacity:0.57;animation-duration:73s;animation-delay:-60s"></i><i style="left:3.1%;width:3px;height:3px;opacity:0.56;animation-duration:44s;animation-delay:-9s"></i><i style="left:57.4%;width:4px;height:4px;opacity:0.38;animation-duration:57s;animation-delay:-50s"></i><i style="left:86.5%;width:6px;height:6px;opacity:0.62;animation-duration:68s;animation-delay:-24s"></i><i style="left:68.4%;width:4px;height:4px;opacity:0.55;animation-duration:74s;animation-delay:-4s"></i><i style="left:0.9%;width:4px;height:4px;opacity:0.70;animation-duration:61s;animation-delay:-19s"></i><i style="left:73.3%;width:3px;height:3px;opacity:0.76;animation-duration:48s;animation-delay:-26s"></i><i style="left:5.6%;width:5px;height:5px;opacity:0.54;animation-duration:61s;animation-delay:-32s"></i><i style="left:17.8%;width:3px;height:3px;opacity:0.46;animation-duration:51s;animation-delay:-54s"></i><i style="left:88.5%;width:4px;height:4px;opacity:0.38;animation-duration:68s;animation-delay:-66s"></i><i style="left:58.2%;width:3px;height:3px;opacity:0.76;animation-duration:70s;animation-delay:-11s"></i><i style="left:70.1%;width:5px;height:5px;opacity:0.37;animation-duration:81s;animation-delay:-33s"></i><i style="left:29.3%;width:3px;height:3px;opacity:0.56;animation-duration:83s;animation-delay:-11s"></i><i style="left:6.3%;width:3px;height:3px;opacity:0.80;animation-duration:61s;animation-delay:-0s"></i><i style="left:95.4%;width:6px;height:6px;opacity:0.68;animation-duration:65s;animation-delay:-68s"></i><i style="left:4.5%;width:6px;height:6px;opacity:0.42;animation-duration:63s;animation-delay:-39s"></i><i style="left:52.7%;width:3px;height:3px;opacity:0.51;animation-duration:62s;animation-delay:-27s"></i><i style="left:32.9%;width:3px;height:3px;opacity:0.63;animation-duration:63s;animation-delay:-18s"></i><i style="left:80.2%;width:6px;height:6px;opacity:0.70;animation-duration:60s;animation-delay:-58s"></i><i style="left:46.3%;width:3px;height:3px;opacity:0.58;animation-duration:54s;animation-delay:-12s"></i><i style="left:59.4%;width:3px;height:3px;opacity:0.57;animation-duration:50s;animation-delay:-75s"></i><i style="left:34.5%;width:5px;height:5px;opacity:0.53;animation-duration:65s;animation-delay:-3s"></i><i style="left:58.1%;width:3px;height:3px;opacity:0.68;animation-duration:64s;animation-delay:-42s"></i><i style="left:43.6%;width:3px;height:3px;opacity:0.79;animation-duration:84s;animation-delay:-63s"></i><i style="left:20.0%;width:4px;height:4px;opacity:0.76;animation-duration:55s;animation-delay:-9s"></i><i style="left:3.6%;width:6px;height:6px;opacity:0.67;animation-duration:68s;animation-delay:-28s"></i></div>
+<div class="snow" aria-hidden="true"><i style="left:44.8%;width:4px;height:4px;opacity:0.55;animation-duration:47s;animation-delay:-34s;"></i><i style="left:63.3%;width:5px;height:5px;opacity:0.75;animation-duration:58s;animation-delay:-14s;"></i><i style="left:25.3%;width:3px;height:3px;opacity:0.45;animation-duration:74s;animation-delay:-60s;"></i><i style="left:95.8%;width:3px;height:3px;opacity:0.32;animation-duration:40s;animation-delay:-28s;"></i><i style="left:49.9%;width:3px;height:3px;opacity:0.81;animation-duration:65s;animation-delay:-60s;"></i><i style="left:81.7%;width:6px;height:6px;opacity:0.45;animation-duration:67s;animation-delay:-53s;filter:blur(1px);"></i><i style="left:27.7%;width:3px;height:3px;opacity:0.32;animation-duration:57s;animation-delay:-5s;"></i><i style="left:39.0%;width:4px;height:4px;opacity:0.45;animation-duration:66s;animation-delay:-0s;"></i><i style="left:72.8%;width:6px;height:6px;opacity:0.36;animation-duration:57s;animation-delay:-61s;filter:blur(1px);"></i><i style="left:88.8%;width:3px;height:3px;opacity:0.44;animation-duration:66s;animation-delay:-58s;"></i><i style="left:80.6%;width:5px;height:5px;opacity:0.69;animation-duration:61s;animation-delay:-56s;"></i><i style="left:48.5%;width:3px;height:3px;opacity:0.69;animation-duration:40s;animation-delay:-44s;"></i><i style="left:57.0%;width:3px;height:3px;opacity:0.83;animation-duration:48s;animation-delay:-68s;"></i><i style="left:85.8%;width:3px;height:3px;opacity:0.39;animation-duration:48s;animation-delay:-46s;"></i><i style="left:12.6%;width:3px;height:3px;opacity:0.74;animation-duration:75s;animation-delay:-17s;"></i><i style="left:73.5%;width:3px;height:3px;opacity:0.39;animation-duration:41s;animation-delay:-80s;"></i><i style="left:31.2%;width:3px;height:3px;opacity:0.74;animation-duration:52s;animation-delay:-62s;"></i><i style="left:97.4%;width:6px;height:6px;opacity:0.69;animation-duration:53s;animation-delay:-63s;filter:blur(1px);"></i><i style="left:21.9%;width:5px;height:5px;opacity:0.44;animation-duration:40s;animation-delay:-20s;"></i><i style="left:52.5%;width:5px;height:5px;opacity:0.85;animation-duration:76s;animation-delay:-76s;"></i><i style="left:75.2%;width:4px;height:4px;opacity:0.71;animation-duration:56s;animation-delay:-63s;"></i><i style="left:70.8%;width:4px;height:4px;opacity:0.61;animation-duration:62s;animation-delay:-5s;"></i><i style="left:92.7%;width:7px;height:7px;opacity:0.71;animation-duration:52s;animation-delay:-15s;filter:blur(1px);"></i><i style="left:68.9%;width:5px;height:5px;opacity:0.85;animation-duration:77s;animation-delay:-48s;"></i><i style="left:20.9%;width:6px;height:6px;opacity:0.52;animation-duration:73s;animation-delay:-20s;filter:blur(1px);"></i><i style="left:44.5%;width:5px;height:5px;opacity:0.38;animation-duration:72s;animation-delay:-18s;"></i><i style="left:97.5%;width:5px;height:5px;opacity:0.44;animation-duration:44s;animation-delay:-72s;"></i><i style="left:11.1%;width:5px;height:5px;opacity:0.79;animation-duration:45s;animation-delay:-69s;"></i><i style="left:47.3%;width:5px;height:5px;opacity:0.52;animation-duration:63s;animation-delay:-60s;"></i><i style="left:77.5%;width:3px;height:3px;opacity:0.54;animation-duration:54s;animation-delay:-30s;"></i><i style="left:59.4%;width:3px;height:3px;opacity:0.64;animation-duration:72s;animation-delay:-45s;"></i><i style="left:20.6%;width:4px;height:4px;opacity:0.75;animation-duration:43s;animation-delay:-2s;"></i><i style="left:16.2%;width:4px;height:4px;opacity:0.62;animation-duration:44s;animation-delay:-52s;"></i><i style="left:97.9%;width:3px;height:3px;opacity:0.34;animation-duration:58s;animation-delay:-44s;"></i></div>
 <header>
   <div class="row">
     <div>
@@ -121,6 +125,7 @@
 <main id="app">
   <div class="card"><p id="loading-msg">Loading… / Cargando…</p></div>
 </main>
+<footer>🎄 Made with love · Hecho con amor 🎄</footer>
 <div id="toast" class="toast hidden"></div>
 
 <script>
@@ -272,7 +277,7 @@ const T = {
     yourItems: "On the list", emptyList: "Nothing here yet. Add the first item!", emptyListShop: "Nothing here yet.",
     dupWarn: (t)=>`This looks similar to "${t}", which is already on this list. Add it anyway?`,
     viewLink: "View / buy →", noPrice: "No price set",
-    statusOpen: "Open", statusClaimed: (n)=>`Claimed by ${n}`, statusBought: (n)=>`Bought by ${n}`,
+    statusOpen: "Open", statusClaimed: (n)=>`Claimed by ${n}`, statusBought: (n)=>`Bought by ${n}`, statusWrapped: (n)=>`🎁 Wrapped & ready by ${n}`, markWrapped: "Mark wrapped & ready", wrappedOk: "Wrapped & ready! 🎁", sumWrapped: (n)=>`🎁 Wrapped: ${n}`, wrappedFor: (n)=>`🎁 Wrapped & ready — for ${n}`,
     statusPool: (a,b)=>`Pool: $${a} of $${b}`, statusFunded: "Pool funded! 🎉",
     claim: "I'll get this", markBought: "Mark as bought", release: "Release claim",
     joinPool: "Chip in", pledgePh: "Your amount $", getInLine: "Get in line", leaveLine: "Leave line",
@@ -351,7 +356,7 @@ const T = {
     yourItems: "En la lista", emptyList: "Todavía no hay nada. ¡Agrega el primer artículo!", emptyListShop: "Todavía no hay nada.",
     dupWarn: (t)=>`Esto se parece a "${t}", que ya está en esta lista. ¿Agregarlo de todos modos?`,
     viewLink: "Ver / comprar →", noPrice: "Sin precio",
-    statusOpen: "Disponible", statusClaimed: (n)=>`Apartado por ${n}`, statusBought: (n)=>`Comprado por ${n}`,
+    statusOpen: "Disponible", statusClaimed: (n)=>`Apartado por ${n}`, statusBought: (n)=>`Comprado por ${n}`, statusWrapped: (n)=>`🎁 Envuelto y listo por ${n}`, markWrapped: "Marcar envuelto y listo", wrappedOk: "¡Envuelto y listo! 🎁", sumWrapped: (n)=>`🎁 Envueltos: ${n}`, wrappedFor: (n)=>`🎁 Envuelto y listo — para ${n}`,
     statusPool: (a,b)=>`Fondo: $${a} de $${b}`, statusFunded: "¡Fondo completo! 🎉",
     claim: "Yo lo compro", markBought: "Marcar como comprado", release: "Soltar el apartado",
     joinPool: "Aportar", pledgePh: "Tu cantidad $", getInLine: "Ponerme en fila", leaveLine: "Salir de la fila",
@@ -802,7 +807,7 @@ async function renderOwnerList(ownerId, nav){
       ${sortBarHtml(false)}
       <div id="o-items">
       ${(sorted.length) ? sorted.map(it => `
-        <div class="item">
+        <div class="item" ${it.priority === 1 ? 'style="border-left:5px solid #c99700"' : ''}>
           <h3>${esc(it.title)}</h3>
           ${itemImg(it)}
           <span class="prio">${prioStars(it.priority)}</span>
@@ -979,7 +984,9 @@ async function renderShopList(ownerId, nav){
     const waiters = line.filter(w => w.item_id === it.id);
     const myLine = waiters.find(w => w.person_id === me.id);
     let chips = '';
-    if (claim) chips += `<span class="chip ${claim.status === 'bought' ? 'bought' : 'claimed'}">${claim.status === 'bought' ? t().statusBought(dispName(claim.claimer_id)) : t().statusClaimed(dispName(claim.claimer_id))}</span>`;
+    if (claim) chips += claim.status === 'wrapped'
+      ? `<span class="chip wrapped">${t().statusWrapped(dispName(claim.claimer_id))}</span>`
+      : `<span class="chip ${claim.status === 'bought' ? 'bought' : 'claimed'}">${claim.status === 'bought' ? t().statusBought(dispName(claim.claimer_id)) : t().statusClaimed(dispName(claim.claimer_id))}</span>`;
     else if (funded) chips += `<span class="chip funded">${t().statusFunded}</span><span class="chip pool">${t().statusPool(pooled, it.price)}</span>`;
     else if (pls.length) chips += `<span class="chip pool">${t().statusPool(pooled, it.price)}</span>`;
     else chips += `<span class="chip open">${t().statusOpen}</span>`;
@@ -987,6 +994,7 @@ async function renderShopList(ownerId, nav){
     let actions = '';
     if (claim && claim.claimer_id === me.id) {
       if (claim.status === 'claimed') actions += `<button class="btn small green" data-bought="${it.id}">${t().markBought}</button>`;
+      if (claim.status === 'bought') actions += `<button class="btn small green" data-wrapped="${it.id}">${t().markWrapped}</button>`;
       actions += `<button class="btn small ghost" data-release="${it.id}">${t().release}</button>`;
     } else if (!claim && !funded && !pls.length) {
       actions += `<button class="btn small red" data-claim="${it.id}">${t().claim}</button>`;
@@ -1003,7 +1011,7 @@ async function renderShopList(ownerId, nav){
     }
     if (isSS() && !shared) { chips = ''; actions = ''; }
     return `
-      <div class="item">
+      <div class="item" ${it.priority === 1 ? 'style="border-left:5px solid #c99700"' : ''}>
         <h3>${esc(it.title)}</h3>
         ${itemImg(it)}
         <span class="prio">${prioStars(it.priority)}</span>
@@ -1059,6 +1067,12 @@ async function renderShopList(ownerId, nav){
     await sb.from('claims').update({ status: 'bought' }).eq('item_id', it.id).eq('claimer_id', me.id).eq('active', true);
     await logActivity(me.id, ownerId, it.id, 'bought', it.title);
     toast(t().boughtOk); rerender();
+  }));
+  app.querySelectorAll('[data-wrapped]').forEach(b => b.addEventListener('click', async () => {
+    const it = items.find(x => x.id === b.dataset.wrapped);
+    await sb.from('claims').update({ status: 'wrapped' }).eq('item_id', it.id).eq('claimer_id', me.id).eq('active', true);
+    await logActivity(me.id, ownerId, it.id, 'wrapped', it.title);
+    toast(t().wrappedOk); rerender();
   }));
   app.querySelectorAll('[data-release]').forEach(b => b.addEventListener('click', async () => {
     if (!(await uiConfirm(t().confirmRelease))) return;
@@ -1125,18 +1139,19 @@ async function renderMyClaims(){
   }
   const priceOf = (id) => Number(itemsById[id]?.price) || 0;
   const claimTotal = (claims || []).reduce((s, c) => s + priceOf(c.item_id), 0);
-  const boughtTotal = (claims || []).filter(c => c.status === 'bought').reduce((s, c) => s + priceOf(c.item_id), 0);
+  const boughtTotal = (claims || []).filter(c => c.status === 'bought' || c.status === 'wrapped').reduce((s, c) => s + priceOf(c.item_id), 0);
+  const wrappedCount = (claims || []).filter(c => c.status === 'wrapped').length;
   const pledgeTotal = (pledges || []).reduce((s, p) => s + Number(p.amount), 0);
   const row = (inner) => `<div class="item">${inner}</div>`;
   app.innerHTML = `
     <button class="btn small ghost" id="c-back">${t().backHome}</button>
     <div class="card"><h2>${t().yourClaimsTitle}</h2>
-    ${(claims?.length || pledges?.length) ? `<p style="font-size:17px;margin:0 0 6px"><b>${t().shopSummary}</b></p><div style="margin-bottom:12px"><span class="chip claimed">${t().sumClaimed(money(claimTotal))}</span><span class="chip bought">${t().sumBought(money(boughtTotal))}</span>${pledgeTotal ? `<span class="chip pool">${t().sumPledged(money(pledgeTotal))}</span>` : ''}</div>` : ''}
+    ${(claims?.length || pledges?.length) ? `<p style="font-size:17px;margin:0 0 6px"><b>${t().shopSummary}</b></p><div style="margin-bottom:12px"><span class="chip claimed">${t().sumClaimed(money(claimTotal))}</span><span class="chip bought">${t().sumBought(money(boughtTotal))}</span>${wrappedCount ? `<span class="chip wrapped">${t().sumWrapped(wrappedCount)}</span>` : ''}${pledgeTotal ? `<span class="chip pool">${t().sumPledged(money(pledgeTotal))}</span>` : ''}</div>` : ''}
     ${(!claims?.length && !pledges?.length && !line?.length) ? `<p class="muted">${t().noClaims}</p>` : ''}
     ${(claims||[]).map(c => { const it = itemsById[c.item_id]; if (!it) return ''; return row(`
       <h3>${esc(it.title)}</h3>
       ${itemImg(it)}
-      <span class="chip ${c.status === 'bought' ? 'bought' : 'claimed'}">${t().youClaimed} — ${esc(personName(it.owner_id))}</span>
+      ${c.status === 'wrapped' ? `<span class="chip wrapped">${t().wrappedFor(personName(it.owner_id))}</span>` : `<span class="chip ${c.status === 'bought' ? 'bought' : 'claimed'}">${t().youClaimed} — ${esc(personName(it.owner_id))}</span>`}
       ${it.archived ? `<span class="chip claimed">⚠️ ${t().removedItems}</span>` : ''}
       ${it.price != null ? `<span class="price">${money(it.price)}</span>` : ''}
       ${it.url ? `<div><a class="buy" href="${esc(it.url)}" target="_blank" rel="noopener">${t().viewLink}</a></div>` : ''}
@@ -1145,6 +1160,7 @@ async function renderMyClaims(){
       <div class="rowflex" style="margin-top:8px">
         <button class="btn small ghost" data-note="${c.id}">${t().save}</button>
         ${c.status === 'claimed' ? `<button class="btn small green" data-cbought="${c.id}">${t().markBought}</button>` : ''}
+        ${c.status === 'bought' ? `<button class="btn small green" data-cwrapped="${c.id}">${t().markWrapped}</button>` : ''}
         <button class="btn small ghost" data-crelease="${c.id}">${t().release}</button>
       </div>`); }).join('')}
     ${(pledges||[]).map(p => { const it = itemsById[p.item_id]; if (!it) return ''; return row(`
@@ -1166,6 +1182,9 @@ async function renderMyClaims(){
   }));
   app.querySelectorAll('[data-cbought]').forEach(b => b.addEventListener('click', async () => {
     await sb.from('claims').update({ status: 'bought' }).eq('id', b.dataset.cbought); toast(t().boughtOk); renderMyClaims();
+  }));
+  app.querySelectorAll('[data-cwrapped]').forEach(b => b.addEventListener('click', async () => {
+    await sb.from('claims').update({ status: 'wrapped' }).eq('id', b.dataset.cwrapped); toast(t().wrappedOk); renderMyClaims();
   }));
   app.querySelectorAll('[data-crelease]').forEach(b => b.addEventListener('click', async () => {
     if (!(await uiConfirm(t().confirmRelease))) return;
