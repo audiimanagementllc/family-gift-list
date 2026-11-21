@@ -292,7 +292,8 @@ const T = {
     ssDrawDone: "Draw complete! Everyone can see their assignment when they log in.",
     ssDrawFail: "Couldn't find a valid draw with those exclusions — ask Anthony.",
     ssBudgetLabel: "Gift budget cap ($)", ssSaveBudget: "Save budget",
-    ssOrgNote: "Assignments are secret — even you can't see who got who. Each person sees only their own."
+    ssOrgNote: "Assignments are secret — even you can't see who got who. Each person sees only their own.",
+    someoneAnon: "someone"
   },
   es: {
     appTitle: "🎄 Listas de Regalos de la Familia", loading: "Cargando…", codeTitle: "Código de la familia",
@@ -366,7 +367,8 @@ const T = {
     ssDrawDone: "¡Sorteo completo! Cada quien puede ver su asignación al entrar.",
     ssDrawFail: "No se encontró un sorteo válido con esas exclusiones — pregunta a Anthony.",
     ssBudgetLabel: "Tope de presupuesto ($)", ssSaveBudget: "Guardar presupuesto",
-    ssOrgNote: "Las asignaciones son secretas — ni tú puedes ver a quién le tocó quién. Cada persona ve solo la suya."
+    ssOrgNote: "Las asignaciones son secretas — ni tú puedes ver a quién le tocó quién. Cada persona ve solo la suya.",
+    someoneAnon: "alguien"
   }
 };
 // ---------- State ----------
@@ -862,6 +864,7 @@ async function renderShopList(ownerId, nav){
     claims = c.data || []; pledges = p.data || []; line = w.data || [];
   }
   await resolveNames([...claims.map(c => c.claimer_id), ...pledges.map(p => p.person_id), ...line.map(w => w.person_id)]);
+  const dispName = (id) => people.find(p => p.id === id) ? personName(id) : t().someoneAnon;   // never show the other family's names
   const { data: shopQs } = await sb.from('questions').select('*').eq('owner_id', effOwner).order('created_at');
   const prioStars = (n) => '⭐'.repeat(4 - n);
   const itemHtml = (it) => {
@@ -873,11 +876,11 @@ async function renderShopList(ownerId, nav){
     const waiters = line.filter(w => w.item_id === it.id);
     const myLine = waiters.find(w => w.person_id === me.id);
     let chips = '';
-    if (claim) chips += `<span class="chip ${claim.status === 'bought' ? 'bought' : 'claimed'}">${claim.status === 'bought' ? t().statusBought(personName(claim.claimer_id)) : t().statusClaimed(personName(claim.claimer_id))}</span>`;
+    if (claim) chips += `<span class="chip ${claim.status === 'bought' ? 'bought' : 'claimed'}">${claim.status === 'bought' ? t().statusBought(dispName(claim.claimer_id)) : t().statusClaimed(dispName(claim.claimer_id))}</span>`;
     else if (funded) chips += `<span class="chip funded">${t().statusFunded}</span><span class="chip pool">${t().statusPool(pooled, it.price)}</span>`;
     else if (pls.length) chips += `<span class="chip pool">${t().statusPool(pooled, it.price)}</span>`;
     else chips += `<span class="chip open">${t().statusOpen}</span>`;
-    if (waiters.length) chips += `<span class="chip">${t().inLine(waiters.map(w => personName(w.person_id)).join(', '))}</span>`;
+    if (waiters.length) chips += `<span class="chip">${t().inLine(waiters.map(w => dispName(w.person_id)).join(', '))}</span>`;
     let actions = '';
     if (claim && claim.claimer_id === me.id) {
       if (claim.status === 'claimed') actions += `<button class="btn small green" data-bought="${it.id}">${t().markBought}</button>`;
@@ -939,7 +942,7 @@ async function renderShopList(ownerId, nav){
   app.querySelectorAll('[data-claim]').forEach(b => b.addEventListener('click', async () => {
     const it = items.find(x => x.id === b.dataset.claim);
     const { data: existing } = await sb.from('claims').select('*').eq('item_id', it.id).eq('active', true);
-    if (existing && existing.length) { toast(t().statusClaimed(personName(existing[0].claimer_id))); return rerender(); }
+    if (existing && existing.length) { toast(t().statusClaimed(dispName(existing[0].claimer_id))); return rerender(); }
     const { error } = await sb.from('claims').insert({ item_id: it.id, claimer_id: me.id, status: 'claimed' });
     if (error) { toast(error.message); return; }
     await logActivity(me.id, ownerId, it.id, 'claim', it.title);
