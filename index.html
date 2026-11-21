@@ -270,7 +270,20 @@ const T = {
     noQs: "No questions yet.", unanswered: "Waiting for an answer",
     newQFlag: "You have a new anonymous question about your list.",
     addPhoto: "📷 Add a photo (optional)", photoLinkPh: "…or paste an image link",
-    removePhoto: "Remove photo", emptyBadge: "No items yet"
+    removePhoto: "Remove photo", emptyBadge: "No items yet",
+    switchFamily: "Use a different family code",
+    ssTitle: "🎅 Secret Santa", ssBudgetLine: (b)=>`🎁 Gift budget: ${b}`,
+    ssBuyingFor: (n)=>`You're buying for: ${n}`, ssSeeList: "See their list",
+    ssNotDrawn: "The draw hasn't happened yet. Add a few things to your list so your Secret Santa knows what to get you!",
+    ssNoAssignment: "The draw already happened and you're not in it — ask the organizer to re-run the draw.",
+    ssOrgTitle: "🎅 Secret Santa controls", ssDrawStatus: "Draw status", ssDrawn: "Done ✅", ssNotYet: "Not drawn yet",
+    ssDrawBtn: "🎲 Run the draw", ssRedrawBtn: "🎲 Re-run the draw",
+    ssDrawConfirm: "Run the Secret Santa draw now? Everyone gets a random person (nobody draws themselves).",
+    ssRedrawConfirm: "Re-run the draw? This replaces ALL current assignments — only do this if nobody has bought anything yet.",
+    ssDrawDone: "Draw complete! Everyone can see their assignment when they log in.",
+    ssDrawFail: "Couldn't find a valid draw with those exclusions — ask Anthony.",
+    ssBudgetLabel: "Gift budget cap ($)", ssSaveBudget: "Save budget",
+    ssOrgNote: "Assignments are secret — even you can't see who got who. Each person sees only their own."
   },
   es: {
     appTitle: "🎄 Listas de Regalos de la Familia", loading: "Cargando…", codeTitle: "Código de la familia",
@@ -331,13 +344,28 @@ const T = {
     noQs: "Todavía no hay preguntas.", unanswered: "Esperando una respuesta",
     newQFlag: "Tienes una pregunta anónima nueva sobre tu lista.",
     addPhoto: "📷 Agregar una foto (opcional)", photoLinkPh: "…o pega un enlace de imagen",
-    removePhoto: "Quitar foto", emptyBadge: "Sin artículos todavía"
+    removePhoto: "Quitar foto", emptyBadge: "Sin artículos todavía",
+    switchFamily: "Usar otro código de familia",
+    ssTitle: "🎅 Amigo Secreto", ssBudgetLine: (b)=>`🎁 Presupuesto del regalo: ${b}`,
+    ssBuyingFor: (n)=>`Te tocó comprarle a: ${n}`, ssSeeList: "Ver su lista",
+    ssNotDrawn: "El sorteo aún no se hace. Agrega algunas cosas a tu lista para que tu amigo secreto sepa qué regalarte.",
+    ssNoAssignment: "El sorteo ya se hizo y no estás incluido — pide al organizador que lo haga de nuevo.",
+    ssOrgTitle: "🎅 Controles del Amigo Secreto", ssDrawStatus: "Estado del sorteo", ssDrawn: "Hecho ✅", ssNotYet: "Aún no se hace",
+    ssDrawBtn: "🎲 Hacer el sorteo", ssRedrawBtn: "🎲 Repetir el sorteo",
+    ssDrawConfirm: "¿Hacer el sorteo del amigo secreto ahora? Cada persona recibe a alguien al azar (nadie se toca a sí mismo).",
+    ssRedrawConfirm: "¿Repetir el sorteo? Esto reemplaza TODAS las asignaciones actuales — hazlo solo si nadie ha comprado nada todavía.",
+    ssDrawDone: "¡Sorteo completo! Cada quien puede ver su asignación al entrar.",
+    ssDrawFail: "No se encontró un sorteo válido con esas exclusiones — pregunta a Anthony.",
+    ssBudgetLabel: "Tope de presupuesto ($)", ssSaveBudget: "Guardar presupuesto",
+    ssOrgNote: "Las asignaciones son secretas — ni tú puedes ver a quién le tocó quién. Cada persona ve solo la suya."
   }
 };
 // ---------- State ----------
-let people = [];           // all active people
+let people = [];           // all active people (current space only)
 let helpersMap = {};       // person_id -> [helper_id]
 let me = null;             // current person object (the human using the app)
+let space = null;          // current family space { id, code, name, mode, budget, draw_done }
+const isSS = () => !!(space && space.mode === 'secret-santa');
 let lang = localStorage.getItem('fgl_lang') || 'en';
 const t = () => T[lang];
 const app = document.getElementById('app');
@@ -416,12 +444,25 @@ const FACES = ['🎅','🎁','⭐','🦌','⛄','🎄','🧦','🔔','🕯️','
 const faceFor = (id) => { let h = 0; for (const c of String(id)) h = (h*31 + c.charCodeAt(0)) >>> 0; return FACES[h % FACES.length]; };
 
 // ---------- Boot ----------
+async function findSpace(code){
+  if (!code) return null;
+  const c = String(code).trim().toLowerCase();
+  const { data } = await sb.from('spaces').select('*').eq('code', c);
+  if (data && data.length) return data[0];
+  // Legacy fallback: the original single-family code still opens the Centeno space.
+  const { data: cfg } = await sb.from('config').select('*').eq('key','family_code').single();
+  if (cfg && String(cfg.value).toLowerCase() === c) return { id: 'centeno', code: cfg.value, name: 'Centeno Family', mode: 'wishlist', budget: null, draw_done: false };
+  return null;
+}
 async function boot(){
   setLang(lang);
   await ensureSeed();
-  const { data: cfg } = await sb.from('config').select('*').eq('key','family_code').single();
-  window._familyCode = cfg ? cfg.value : null;
-  if (localStorage.getItem('fgl_code') !== 'ok') return renderGate();
+  let savedCode = localStorage.getItem('fgl_space');
+  if (!savedCode && localStorage.getItem('fgl_code') === 'ok') savedCode = 'centeno'; // pre-spaces sessions
+  space = await findSpace(savedCode || '');
+  if (!space) return renderGate();
+  localStorage.setItem('fgl_space', space.code);
+  window._familyCode = space.code;
   await loadPeople();
   const savedId = localStorage.getItem('fgl_person');
   me = people.find(p => p.id === savedId) || null;
@@ -431,7 +472,7 @@ async function boot(){
 }
 async function loadPeople(){
   const { data } = await sb.from('people').select('*').eq('active', true).order('created_at');
-  people = data || [];
+  people = (data || []).filter(p => (p.space || 'centeno') === (space ? space.id : 'centeno'));
   const { data: hs } = await sb.from('helpers').select('*');
   helpersMap = {};
   (hs || []).forEach(h => { (helpersMap[h.person_id] = helpersMap[h.person_id] || []).push(h.helper_id); });
@@ -452,8 +493,13 @@ function renderGate(){
     </div>`;
   const go = async () => {
     const v = $('#code-in').value.trim().toLowerCase();
-    if (window._familyCode && v === String(window._familyCode).toLowerCase()) {
-      localStorage.setItem('fgl_code', 'ok'); boot();
+    const sp = await findSpace(v);
+    if (sp) {
+      space = sp;
+      localStorage.setItem('fgl_space', sp.code);
+      localStorage.setItem('fgl_code', 'ok');
+      localStorage.removeItem('fgl_person');
+      boot();
     } else toast(t().codeWrong);
   };
   $('#code-btn').addEventListener('click', go);
@@ -470,8 +516,10 @@ function renderWho(){
       <div class="person-grid">
         ${people.map(p => `<button class="person-btn" data-id="${p.id}"><span class="face">${faceFor(p.id)}</span>${esc(p.name)}</button>`).join('')}
       </div>
-    </div>`;
+    </div>
+    <button class="btn ghost" id="who-family">${t().switchFamily}</button>`;
   app.querySelectorAll('.person-btn').forEach(b => b.addEventListener('click', () => pickPerson(b.dataset.id)));
+  $('#who-family').addEventListener('click', () => { me = null; space = null; localStorage.removeItem('fgl_space'); localStorage.removeItem('fgl_code'); localStorage.removeItem('fgl_person'); renderGate(); });
 }
 async function pickPerson(id){
   const p = people.find(x => x.id === id);
@@ -543,12 +591,29 @@ async function renderHome(){
     sb.from('flags').select('*').eq('for_person_id', me.id).eq('seen', false).order('created_at'),
     sb.from('items').select('*').eq('archived', false)
   ]);
-  const myFlags = flagsRes.data, allItems = allItemsRes.data;
-  const itemCounts = {}; (allItems || []).forEach(i => { itemCounts[i.owner_id] = (itemCounts[i.owner_id] || 0) + 1; });
+  const myFlags = flagsRes.data;
+  const inSpace = new Set(people.map(p => p.id));
+  const allItems = (allItemsRes.data || []).filter(i => inSpace.has(i.owner_id));
+  const itemCounts = {}; allItems.forEach(i => { itemCounts[i.owner_id] = (itemCounts[i.owner_id] || 0) + 1; });
+  let ssCard = '';
+  if (isSS()) {
+    let inner = `<h2>${t().ssTitle}</h2>`;
+    if (space.budget != null && space.budget !== '') inner += `<p style="font-size:17px">${t().ssBudgetLine(money(space.budget))}</p>`;
+    if (space.draw_done) {
+      const { data: asg } = await sb.from('assignments').select('*').eq('space', space.id).eq('giver_id', me.id);
+      const mine = asg && asg[0];
+      if (mine) inner += `<p style="font-size:19px; margin:8px 0">🎁 ${t().ssBuyingFor(personName(mine.receiver_id))}</p><button class="btn red" id="h-sslist">${t().ssSeeList}</button>`;
+      else inner += `<p class="muted">${t().ssNoAssignment}</p>`;
+    } else {
+      inner += `<p class="muted">${t().ssNotDrawn}</p>`;
+    }
+    ssCard = `<div class="card">${inner}</div>`;
+  }
   const emptyChip = (pid) => itemCounts[pid] ? '' : ` <span class="chip">${t().emptyBadge}</span>`;
   app.innerHTML = `
     ${d > 0 ? `<div class="countdown">🎄 ${d} ${t().countdown}</div>` : (d === 0 ? `<div class="countdown">${t().today}</div>` : '')}
     ${(myFlags && myFlags.length) ? `<div class="card"><h2>📣 ${t().flagsTitle}</h2>${myFlags.map(f => `<div class="flag">${esc(f.message)}<br><button class="btn small ghost" data-flag="${f.id}">${t().flagDismiss}</button></div>`).join('')}</div>` : ''}
+    ${ssCard}
     <div class="hat shop">${t().hatShop(me.name)}</div>
     <button class="btn red" id="h-mylist">${t().myList}</button>
     ${helped.length ? `<div class="card"><h2>${t().helpLists}</h2>${helped.map(p => `<button class="btn ghost" data-help="${p.id}">🤝 ${esc(p.name)}${emptyChip(p.id)}</button>`).join('')}</div>` : ''}
@@ -556,13 +621,17 @@ async function renderHome(){
       <h2>${t().shopFor}</h2>
       ${others.map(p => `<button class="btn ghost" data-shop="${p.id}">${faceFor(p.id)} ${esc(p.name)}${emptyChip(p.id)}</button>`).join('')}
     </div>
-    <button class="btn green" id="h-claims">${t().myClaims}</button>
+    ${isSS() ? '' : `<button class="btn green" id="h-claims">${t().myClaims}</button>`}
     ${me.is_organizer ? `<button class="btn ghost" id="h-org">${t().organizer}</button>` : ''}
     <button class="btn ghost" id="h-switch">${t().switchPerson}</button>`;
   $('#h-mylist').addEventListener('click', () => renderOwnerList(me.id, true));
   app.querySelectorAll('[data-help]').forEach(b => b.addEventListener('click', () => renderOwnerList(b.dataset.help, true)));
   app.querySelectorAll('[data-shop]').forEach(b => b.addEventListener('click', () => renderShopList(b.dataset.shop, true)));
-  $('#h-claims').addEventListener('click', renderMyClaims);
+  const claimsBtn = $('#h-claims'); if (claimsBtn) claimsBtn.addEventListener('click', renderMyClaims);
+  const ssBtn = $('#h-sslist'); if (ssBtn) ssBtn.addEventListener('click', async () => {
+    const { data: asg } = await sb.from('assignments').select('*').eq('space', space.id).eq('giver_id', me.id);
+    if (asg && asg[0]) renderShopList(asg[0].receiver_id, true);
+  });
   const org = $('#h-org'); if (org) org.addEventListener('click', renderOrganizer);
   $('#h-switch').addEventListener('click', () => { me = null; localStorage.removeItem('fgl_person'); renderWho(); });
   app.querySelectorAll('[data-flag]').forEach(b => b.addEventListener('click', async () => {
@@ -763,7 +832,7 @@ async function renderShopList(ownerId, nav){
   const { data: items } = await sb.from('items').select('*').eq('owner_id', ownerId).eq('archived', false).order('priority').order('created_at');
   const ids = (items || []).map(i => i.id);
   let claims = [], pledges = [], line = [];
-  if (ids.length) {
+  if (ids.length && !isSS()) {
     const [c, p, w] = await Promise.all([
       sb.from('claims').select('*').in('item_id', ids).eq('active', true),
       sb.from('pledges').select('*').in('item_id', ids).eq('active', true),
@@ -804,6 +873,7 @@ async function renderShopList(ownerId, nav){
         ? `<button class="btn small ghost" data-unline="${it.id}">${t().leaveLine}</button><span class="muted">${t().youNext}</span>`
         : `<button class="btn small ghost" data-line="${it.id}">${t().getInLine}</button>`;
     }
+    if (isSS()) { chips = ''; actions = ''; }
     return `
       <div class="item">
         <h3>${esc(it.title)}</h3>
@@ -984,10 +1054,14 @@ async function renderMyClaims(){
 }
 // ---------- Organizer ----------
 async function renderOrganizer(){
-  const { data: allPeople } = await sb.from('people').select('*').order('created_at');
-  const { data: allHelpers } = await sb.from('helpers').select('*');
-  const { data: acts } = await sb.from('activity').select('*').order('created_at', { ascending: false }).limit(40);
-  const nameOf = (id) => (allPeople.find(p => p.id === id) || {}).name || '—';
+  const { data: everyone } = await sb.from('people').select('*').order('created_at');
+  const nameOf = (id) => ((everyone || []).find(p => p.id === id) || {}).name || '—';
+  const allPeople = (everyone || []).filter(p => (p.space || 'centeno') === space.id);
+  const inSpaceIds = new Set(allPeople.map(p => p.id));
+  const { data: allHelpersRaw } = await sb.from('helpers').select('*');
+  const allHelpers = (allHelpersRaw || []).filter(h => inSpaceIds.has(h.person_id));
+  const { data: actsRaw } = await sb.from('activity').select('*').order('created_at', { ascending: false }).limit(40);
+  const acts = (actsRaw || []).filter(a => inSpaceIds.has(a.actor_id));
   app.innerHTML = `
     <button class="btn small ghost" id="g-back">${t().backHome}</button>
     <div class="card">
@@ -1021,6 +1095,17 @@ async function renderOrganizer(){
           </div>
         </div>`; }).join('')}
     </div>
+    ${isSS() ? `<div class="card">
+      <h2>${t().ssOrgTitle}</h2>
+      <p>${t().ssDrawStatus}: <b>${space.draw_done ? t().ssDrawn : t().ssNotYet}</b></p>
+      <p class="muted">${t().ssOrgNote}</p>
+      <button class="btn red" id="ss-draw">${space.draw_done ? t().ssRedrawBtn : t().ssDrawBtn}</button>
+      <div style="height:14px"></div>
+      <label>${t().ssBudgetLabel}</label>
+      <input type="number" id="ss-budget" min="0" step="1" inputmode="numeric" value="${space.budget ?? ''}">
+      <div style="height:10px"></div>
+      <button class="btn ghost" id="ss-budget-save">${t().ssSaveBudget}</button>
+    </div>` : ''}
     <div class="card">
       <h2>🔐 ${t().changeCode}</h2>
       <input type="text" id="new-code" value="${esc(window._familyCode || '')}">
@@ -1037,7 +1122,7 @@ async function renderOrganizer(){
   $('#g-back').addEventListener('click', renderHome);
   $('#np-add').addEventListener('click', async () => {
     const name = $('#np-name').value.trim(); if (!name) { $('#np-name').focus(); return; }
-    const { error } = await sb.from('people').insert({ name, lang: $('#np-lang').value });
+    const { error } = await sb.from('people').insert({ name, lang: $('#np-lang').value, space: space.id });
     if (error) { toast(error.message); return; }
     await loadPeople(); toast(t().savedOk); renderOrganizer();
   });
@@ -1067,16 +1152,51 @@ async function renderOrganizer(){
     await loadPeople(); toast(t().savedOk); renderOrganizer();
   }));
   $('#code-save').addEventListener('click', async () => {
-    const v = $('#new-code').value.trim(); if (!v) return;
-    await sb.from('config').update({ value: v }).eq('key', 'family_code');
-    window._familyCode = v; toast(t().codeChanged);
+    const v = $('#new-code').value.trim().toLowerCase(); if (!v) return;
+    await sb.from('spaces').update({ code: v }).eq('id', space.id);
+    if (space.id === 'centeno') await sb.from('config').update({ value: v }).eq('key', 'family_code');
+    space.code = v; window._familyCode = v;
+    localStorage.setItem('fgl_space', v);
+    toast(t().codeChanged);
+  });
+  const ssDrawBtn = $('#ss-draw');
+  if (ssDrawBtn) ssDrawBtn.addEventListener('click', async () => {
+    if (!(await uiConfirm(space.draw_done ? t().ssRedrawConfirm : t().ssDrawConfirm))) return;
+    const givers = allPeople.filter(p => p.active).map(p => p.id);
+    const pairs = space.excluded_pairs || [];
+    const banned = (g, r) => g === r || pairs.some(pr => (pr.a === g && pr.b === r) || (pr.a === r && pr.b === g));
+    let receivers = null;
+    for (let tries = 0; tries < 3000 && !receivers; tries++) {
+      const cand = [...givers].sort(() => Math.random() - 0.5);
+      if (givers.every((g, i) => !banned(g, cand[i]))) receivers = cand;
+    }
+    if (!receivers) { toast(t().ssDrawFail); return; }
+    await sb.from('assignments').delete().eq('space', space.id);
+    for (let i = 0; i < givers.length; i++) {
+      await sb.from('assignments').insert({ space: space.id, giver_id: givers[i], receiver_id: receivers[i] });
+    }
+    await sb.from('spaces').update({ draw_done: true, draw_at: new Date().toISOString() }).eq('id', space.id);
+    space.draw_done = true;
+    await logActivity(me.id, null, null, 'ss_draw', `${givers.length} people`);
+    toast(t().ssDrawDone); renderOrganizer();
+  });
+  const ssBudgetBtn = $('#ss-budget-save');
+  if (ssBudgetBtn) ssBudgetBtn.addEventListener('click', async () => {
+    const raw = $('#ss-budget').value.trim();
+    const v = raw === '' ? null : Number(raw);
+    await sb.from('spaces').update({ budget: v }).eq('id', space.id);
+    space.budget = v; toast(t().savedOk); renderOrganizer();
   });
   $('#season').addEventListener('click', async () => {
     if (!(await uiConfirm(t().newSeasonConfirm))) return;
-    await sb.from('items').update({ archived: true, updated_at: new Date().toISOString() }).eq('archived', false);
-    await sb.from('claims').update({ active: false }).eq('active', true);
-    await sb.from('pledges').update({ active: false }).eq('active', true);
-    await sb.from('waitlist').update({ active: false }).eq('active', true);
+    const { data: spItems } = await sb.from('items').select('*').eq('archived', false);
+    const myItemIds = (spItems || []).filter(i => inSpaceIds.has(i.owner_id)).map(i => i.id);
+    if (myItemIds.length) {
+      await sb.from('items').update({ archived: true, updated_at: new Date().toISOString() }).in('id', myItemIds);
+      await sb.from('claims').update({ active: false }).in('item_id', myItemIds);
+      await sb.from('pledges').update({ active: false }).in('item_id', myItemIds);
+      await sb.from('waitlist').update({ active: false }).in('item_id', myItemIds);
+    }
     await logActivity(me.id, null, null, 'new_season', '');
     toast(t().seasonDone); renderHome();
   });
