@@ -70,6 +70,9 @@
   .btn:disabled{opacity:.45; cursor:not-allowed;}
   .btn:focus-visible,.person-btn:focus-visible,.langbtn:focus-visible{outline:3px solid rgba(184,134,11,.65); outline-offset:2px;}
   .person-grid{display:grid; grid-template-columns:1fr 1fr; gap:12px;}
+  .emoji-grid{display:grid; grid-template-columns:repeat(6,1fr); gap:8px;}
+  .emoji-btn{background:#fffefa; border:1.5px solid var(--line); border-radius:14px; padding:9px 0; font-size:26px; cursor:pointer; text-align:center;}
+  .emoji-btn.sel{border-color:var(--gold-soft); background:#fdf3d8; box-shadow:0 0 0 2px rgba(201,151,0,.35);}
   .person-btn{background:linear-gradient(180deg,#fffefa,#fdf6e9); border:1.5px solid var(--line); border-radius:18px; padding:20px 10px; font-size:19px; font-weight:800; cursor:pointer; text-align:center;
     font-family:var(--serif); color:#43332a; box-shadow:0 3px 10px -6px rgba(101,67,33,.4); transition:transform .12s ease, box-shadow .12s ease, border-color .12s ease;}
   @media (hover:hover){ .person-btn:hover{transform:translateY(-2px); border-color:#d9c391; box-shadow:0 10px 18px -10px rgba(101,67,33,.45);} }
@@ -335,7 +338,10 @@ const T = {
     sortBy: "Sort:", sortStars: "⭐ Most wanted first", sortPriceAsc: "💲 Price: low to high", sortPriceDesc: "💲 Price: high to low", sortNewest: "🆕 Newest first", sortName: "🔤 Name A–Z",
     filterAll: "All items", filterOpen: "Open only", filterClaimed: "Claimed only", filterNone: "Nothing matches that filter.",
     newItem: "New", shopSummary: "🧾 Your shopping so far", sumClaimed: (v)=>`Claimed ${v}`, sumBought: (v)=>`Bought ${v}`, sumPledged: (v)=>`Chipped in ${v}`,
-    coveredChip: (a,b)=>`✓ ${a}/${b} covered`
+    coveredChip: (a,b)=>`✓ ${a}/${b} covered`,
+    emojiBtn: (e)=>`🎨 My emoji: ${e}`, emojiForBtn: (e)=>`🎨 Their emoji: ${e}`, emojiTitle: "🎨 Pick an emoji",
+    emojiHelp: "This little picture sits next to the name everywhere in the app — the name picker, the shop list, everywhere.",
+    emojiCustomPh: "…or type your own emoji", emojiReset: "Use the automatic one", emojiSaved: "Emoji saved! 🎉"
   },
   es: {
     appTitle: "🎄 Listas de Regalos de la Familia", loading: "Cargando…", codeTitle: "Código de la familia",
@@ -414,7 +420,10 @@ const T = {
     sortBy: "Ordenar:", sortStars: "⭐ Más deseados primero", sortPriceAsc: "💲 Precio: de menor a mayor", sortPriceDesc: "💲 Precio: de mayor a menor", sortNewest: "🆕 Más nuevos primero", sortName: "🔤 Nombre A–Z",
     filterAll: "Todo", filterOpen: "Solo disponibles", filterClaimed: "Solo apartados", filterNone: "Nada coincide con ese filtro.",
     newItem: "Nuevo", shopSummary: "🧾 Tus compras hasta ahora", sumClaimed: (v)=>`Apartado ${v}`, sumBought: (v)=>`Comprado ${v}`, sumPledged: (v)=>`Aportado ${v}`,
-    coveredChip: (a,b)=>`✓ ${a}/${b} cubiertos`
+    coveredChip: (a,b)=>`✓ ${a}/${b} cubiertos`,
+    emojiBtn: (e)=>`🎨 Mi emoji: ${e}`, emojiForBtn: (e)=>`🎨 Su emoji: ${e}`, emojiTitle: "🎨 Elige un emoji",
+    emojiHelp: "Esta imagen aparece junto al nombre en toda la app: en la lista de nombres, al comprar, en todas partes.",
+    emojiCustomPh: "…o escribe tu propio emoji", emojiReset: "Usar el automático", emojiSaved: "¡Emoji guardado! 🎉"
   }
 };
 // ---------- State ----------
@@ -506,7 +515,8 @@ async function flag(personId, itemId, message){
 }
 const personName = (id) => (people.find(p => p.id === id) || {}).name || extraNames[id] || '—';
 const FACES = ['🎅','🎁','⭐','🦌','⛄','🎄','🧦','🔔','🕯️','🍪','🎶','❄️'];
-const faceFor = (id) => { let h = 0; for (const c of String(id)) h = (h*31 + c.charCodeAt(0)) >>> 0; return FACES[h % FACES.length]; };
+const faceFor = (id) => { const p = (typeof people !== 'undefined' ? people : []).find(x => x.id === id); if (p && p.emoji) return p.emoji; let h = 0; for (const c of String(id)) h = (h*31 + c.charCodeAt(0)) >>> 0; return FACES[h % FACES.length]; };
+const EMOJI_CHOICES = ['🎅','🤶','🧑‍🎄','🎄','🎁','⭐','🌟','❄️','⛄','🦌','🛷','🧦','🔔','🕯️','🍪','☕','🍷','🎶','🦄','🐶','🐱','🦊','🐻','🐼','🦁','🐯','🐸','🐵','🐲','⚽','🏀','🎸','🎮','📚','✈️','🚗','💪','😎','🤓','🥳','🌮','🍕','🌻','🌹'];
 
 // ---------- Boot ----------
 async function findSpace(code){
@@ -703,12 +713,14 @@ async function renderHome(){
       ${others.map(p => `<button class="btn ghost" data-shop="${p.id}">${faceFor(p.id)} ${esc(p.name)}${emptyChip(listOwnerId(p))}${coverChip(listOwnerId(p))}</button>`).join('')}
     </div>
     ${isSS() ? '' : `<button class="btn green" id="h-claims">${t().myClaims}</button>`}
+    <button class="btn ghost" id="h-emoji">${t().emojiBtn(faceFor(me.id))}</button>
     ${me.is_organizer ? `<button class="btn ghost" id="h-org">${t().organizer}</button>` : ''}
     <button class="btn ghost" id="h-switch">${t().switchPerson}</button>`;
   $('#h-mylist').addEventListener('click', () => renderOwnerList(me.id, true));
   app.querySelectorAll('[data-help]').forEach(b => b.addEventListener('click', () => renderOwnerList(b.dataset.help, true)));
   app.querySelectorAll('[data-shop]').forEach(b => b.addEventListener('click', () => renderShopList(b.dataset.shop, true)));
   const claimsBtn = $('#h-claims'); if (claimsBtn) claimsBtn.addEventListener('click', renderMyClaims);
+  $('#h-emoji').addEventListener('click', () => renderEmojiPicker(me.id));
   const ssBtn = $('#h-sslist'); if (ssBtn) ssBtn.addEventListener('click', async () => {
     const { data: asg } = await sb.from('assignments').select('*').eq('space', space.id).eq('giver_id', me.id);
     if (asg && asg[0]) renderShopList(asg[0].receiver_id, true);
@@ -782,6 +794,7 @@ async function renderOwnerList(ownerId, nav){
   app.innerHTML = `
     <button class="btn small ghost" id="o-back">${t().backHome}</button>
     ${isHelper ? `<div class="hat help">${t().hatHelp(owner.name)}<br><button class="btn small ghost" id="o-shop" style="margin-top:8px">${t().viewAsShopper}</button></div>` : ``}
+    <div style="margin:0 0 12px"><button class="btn small ghost" id="o-emoji">${isHelper ? t().emojiForBtn(faceFor(owner.id)) : t().emojiBtn(faceFor(owner.id))}</button></div>
     <div class="card">
       <h2>${isHelper ? t().helpedPerson(owner.name) : t().myList}</h2>
       <h3 style="margin:10px 0 8px">${t().addItem}</h3>
@@ -845,6 +858,7 @@ async function renderOwnerList(ownerId, nav){
     toast(t().answeredOk); renderOwnerList(ownerId);
   }));
   const shopBtn = $('#o-shop'); if (shopBtn) shopBtn.addEventListener('click', () => renderShopList(ownerId, true));
+  $('#o-emoji').addEventListener('click', () => renderEmojiPicker(ownerId));
   $('#i-add').addEventListener('click', async () => {
     const title = $('#i-title').value.trim();
     if (!title) { $('#i-title').focus(); return; }
@@ -1124,6 +1138,44 @@ async function renderShopList(ownerId, nav){
   }));
 }
 
+// ---------- Emoji picker ----------
+async function renderEmojiPicker(personId){
+  const person = people.find(p => p.id === personId);
+  if (!person) return renderHome();
+  const cur = person.emoji || '';
+  app.innerHTML = `
+    <button class="btn small ghost" id="e-back">${t().back}</button>
+    <div class="card">
+      <h2>${t().emojiTitle}</h2>
+      <p class="muted">${t().emojiHelp}</p>
+      <p style="font-size:44px;text-align:center;margin:10px 0">${faceFor(personId)}</p>
+      <div class="emoji-grid">
+        ${EMOJI_CHOICES.map(e => `<button class="emoji-btn ${e === cur ? 'sel' : ''}" data-emoji="${e}">${e}</button>`).join('')}
+      </div>
+      <div class="divider"></div>
+      <input type="text" id="e-custom" placeholder="${t().emojiCustomPh}" maxlength="8">
+      <div style="height:10px"></div>
+      <button class="btn red" id="e-save-custom">${t().save}</button>
+      <button class="btn ghost" id="e-reset">${t().emojiReset}</button>
+    </div>`;
+  const back = () => { if (personId === me.id) renderHome(); else renderOwnerList(personId); };
+  $('#e-back').addEventListener('click', back);
+  const apply = async (emoji) => {
+    const { error } = await sb.from('people').update({ emoji }).eq('id', personId);
+    if (error) { toast(error.message); return; }
+    person.emoji = emoji;
+    if (me && me.id === personId) me.emoji = emoji;
+    toast(t().emojiSaved); back();
+  };
+  app.querySelectorAll('[data-emoji]').forEach(b => b.addEventListener('click', () => apply(b.dataset.emoji)));
+  $('#e-save-custom').addEventListener('click', () => {
+    const v = $('#e-custom').value.trim(); if (!v) { $('#e-custom').focus(); return; }
+    let g = v;
+    try { const seg = new Intl.Segmenter(undefined, { granularity: 'grapheme' }).segment(v); g = seg[Symbol.iterator]().next().value.segment; } catch (e) { g = [...v][0]; }
+    apply(g);
+  });
+  $('#e-reset').addEventListener('click', () => apply(null));
+}
 // ---------- My claims & pools ----------
 async function renderMyClaims(){
   const [{ data: claims }, { data: pledges }, { data: line }] = await Promise.all([
