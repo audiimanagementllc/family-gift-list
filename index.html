@@ -216,7 +216,7 @@ const T = {
     codeHelp: "Enter the family code to open the gift lists.", codePh: "Family code", enter: "Enter",
     codeWrong: "That code doesn't match. Check with Anthony and try again.",
     whoTitle: "Who is using the app?", whoHelp: "Tap your name. No password — just don't tap someone else's name by mistake!",
-    pinTitle: "Enter your PIN", pinHelp: "This name is protected with a PIN.", pinWrong: "Wrong PIN. Try again.",
+    loadingTxt: "Loading…", pinTitle: "Enter your PIN", pinHelp: "This name is protected with a PIN.", pinWrong: "Wrong PIN. Try again.",
     setPinTitle: "First time here?", setPinHelp: "Confirm it's really you: create your PIN using your birthday — 4 digits, month then day. For example, April 23 is 0423. You'll only need it on a new phone or after switching people.", pinConfirmPh: "Enter it again", pinMismatch: "Those didn't match. Try again.", pinFormat: "Use 4 digits: month then day (e.g. 0423).", setPinBtn: "Set my PIN",
     hello: "Hi", countdown: "days until Christmas 🎄", today: "It's Christmas Day! 🎄",
     hatShop: (n)=>`🛍️ You are shopping as ${n}. You can see claims and pools on other people's lists.`,
@@ -277,7 +277,7 @@ const T = {
     codeHelp: "Escribe el código de la familia para abrir las listas.", codePh: "Código de la familia", enter: "Entrar",
     codeWrong: "Ese código no coincide. Pregúntale a Anthony e inténtalo de nuevo.",
     whoTitle: "¿Quién está usando la aplicación?", whoHelp: "Toca tu nombre. No hay contraseña — ¡solo no toques el nombre de otra persona por error!",
-    pinTitle: "Escribe tu PIN", pinHelp: "Este nombre está protegido con un PIN.", pinWrong: "PIN incorrecto. Inténtalo de nuevo.",
+    loadingTxt: "Cargando…", pinTitle: "Escribe tu PIN", pinHelp: "Este nombre está protegido con un PIN.", pinWrong: "PIN incorrecto. Inténtalo de nuevo.",
     setPinTitle: "¿Primera vez aquí?", setPinHelp: "Confirma que eres tú: crea tu PIN con tu cumpleaños — 4 dígitos, mes y luego día. Por ejemplo, el 23 de abril es 0423. Solo lo necesitarás en un teléfono nuevo o después de cambiar de persona.", pinConfirmPh: "Escríbelo otra vez", pinMismatch: "No coinciden. Inténtalo de nuevo.", pinFormat: "Usa 4 dígitos: mes y luego día (ej. 0423).", setPinBtn: "Guardar mi PIN",
     hello: "Hola", countdown: "días para Navidad 🎄", today: "¡Es Navidad! 🎄",
     hatShop: (n)=>`🛍️ Estás comprando como ${n}. Puedes ver los apartados y los fondos en las listas de los demás.`,
@@ -518,10 +518,14 @@ async function pickPerson(id){
   $('#pin-set').addEventListener('click', setGo);
   $('#pin-new2').addEventListener('keydown', e => { if (e.key === 'Enter') setGo(); });
 }
+function paintLoading(){
+  app.innerHTML = `<div class="card" style="text-align:center; padding:34px 16px"><div style="font-size:34px">🎄</div><p class="muted" style="font-size:18px; margin-top:8px">${t().loadingTxt}</p></div>`;
+}
 function finishPick(){
   localStorage.setItem('fgl_person', me.id);
   lang = me.lang || lang; setLang(lang);
-  renderHome();
+  paintLoading();
+  setTimeout(renderHome, 30);
 }
 
 // ---------- Home ----------
@@ -555,9 +559,9 @@ async function renderHome(){
     <button class="btn green" id="h-claims">${t().myClaims}</button>
     ${me.is_organizer ? `<button class="btn ghost" id="h-org">${t().organizer}</button>` : ''}
     <button class="btn ghost" id="h-switch">${t().switchPerson}</button>`;
-  $('#h-mylist').addEventListener('click', () => renderOwnerList(me.id));
-  app.querySelectorAll('[data-help]').forEach(b => b.addEventListener('click', () => renderOwnerList(b.dataset.help)));
-  app.querySelectorAll('[data-shop]').forEach(b => b.addEventListener('click', () => renderShopList(b.dataset.shop)));
+  $('#h-mylist').addEventListener('click', () => renderOwnerList(me.id, true));
+  app.querySelectorAll('[data-help]').forEach(b => b.addEventListener('click', () => renderOwnerList(b.dataset.help, true)));
+  app.querySelectorAll('[data-shop]').forEach(b => b.addEventListener('click', () => renderShopList(b.dataset.shop, true)));
   $('#h-claims').addEventListener('click', renderMyClaims);
   const org = $('#h-org'); if (org) org.addEventListener('click', renderOrganizer);
   $('#h-switch').addEventListener('click', () => { me = null; localStorage.removeItem('fgl_person'); renderWho(); });
@@ -576,7 +580,8 @@ function similar(a, b){
   let shared = 0; bw.forEach(w => { if (aw.has(w)) shared++; });
   return shared / Math.min(aw.size, bw.size) >= 0.6;
 }
-async function renderOwnerList(ownerId){
+async function renderOwnerList(ownerId, nav){
+  if (nav) { paintLoading(); await new Promise(r => setTimeout(r, 30)); }
   const owner = people.find(p => p.id === ownerId);
   const isHelper = ownerId !== me.id;
   const [itemsRes, removedRes, qsRes] = await Promise.all([
@@ -649,7 +654,7 @@ async function renderOwnerList(ownerId){
     await sb.from('questions').update({ answer: ans, answered_at: new Date().toISOString() }).eq('id', b.dataset.answer);
     toast(t().answeredOk); renderOwnerList(ownerId);
   }));
-  const shopBtn = $('#o-shop'); if (shopBtn) shopBtn.addEventListener('click', () => renderShopList(ownerId));
+  const shopBtn = $('#o-shop'); if (shopBtn) shopBtn.addEventListener('click', () => renderShopList(ownerId, true));
   $('#i-add').addEventListener('click', async () => {
     const title = $('#i-title').value.trim();
     if (!title) { $('#i-title').focus(); return; }
@@ -752,7 +757,8 @@ async function notifyClaimersChanged(itemId, item, owner){
   for (const pid of targets) await flag(pid, itemId, t().itemChangedFlag(item.title, owner.name));
 }
 // ---------- Shopper list (claims + pools visible) ----------
-async function renderShopList(ownerId){
+async function renderShopList(ownerId, nav){
+  if (nav) { paintLoading(); await new Promise(r => setTimeout(r, 30)); }
   const owner = people.find(p => p.id === ownerId);
   const { data: items } = await sb.from('items').select('*').eq('owner_id', ownerId).eq('archived', false).order('priority').order('created_at');
   const ids = (items || []).map(i => i.id);
