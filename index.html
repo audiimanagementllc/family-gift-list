@@ -133,7 +133,7 @@
 
 <script>
 // Loading watchdog (added Nov 25, 2026): if the app is still sitting on the
-// initial "Loading…" card after 12s — e.g. the database connection stalled on
+// initial "Loading…" card after 4s — e.g. the database connection stalled on
 // a cold open — reload once automatically. If it is STILL stuck after that,
 // turn the message into a tap-to-retry instead of hanging silently. The retry
 // flag clears as soon as any real screen renders, so a later stall gets its
@@ -153,7 +153,7 @@
     m.textContent = 'Still loading… tap to try again · Sigue cargando… toca para reintentar';
     m.style.cursor = 'pointer';
     m.addEventListener('click', function(){ try { sessionStorage.removeItem(KEY); } catch(e){} location.reload(); });
-  }, 12000);
+  }, 4000);
 })();
 </script>
 
