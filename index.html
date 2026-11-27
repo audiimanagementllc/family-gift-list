@@ -1184,9 +1184,9 @@ async function renderShopList(ownerId, nav){
     const waiters = line.filter(w => w.item_id === it.id);
     const myLine = waiters.find(w => w.person_id === me.id);
     let chips = '';
-    if (claim) chips += claim.status === 'wrapped'
-      ? `<span class="chip wrapped">${t().statusWrapped(dispName(claim.claimer_id))}</span>`
-      : `<span class="chip ${claim.status === 'bought' ? 'bought' : 'claimed'}">${claim.status === 'bought' ? t().statusBought(dispName(claim.claimer_id)) : t().statusClaimed(dispName(claim.claimer_id))}</span>`;
+    if (claim) chips += (claim.status === 'bought' || claim.status === 'wrapped')
+      ? `<span class="chip bought">${t().statusBought(dispName(claim.claimer_id))}</span>`
+      : `<span class="chip claimed">${t().statusClaimed(dispName(claim.claimer_id))}</span>`;
     else if (funded) chips += `<span class="chip funded">${t().statusFunded}</span><span class="chip pool">${t().statusPool(pooled, it.price)}</span>`;
     else if (pls.length) chips += `<span class="chip pool">${t().statusPool(pooled, it.price)}</span>`;
     else chips += `<span class="chip open">${t().statusOpen}</span>`;
@@ -1194,7 +1194,6 @@ async function renderShopList(ownerId, nav){
     let actions = '';
     if (claim && claim.claimer_id === me.id) {
       if (claim.status === 'claimed') actions += `<button class="btn small green" data-bought="${it.id}">${t().markBought}</button>`;
-      if (claim.status === 'bought') actions += `<button class="btn small green" data-wrapped="${it.id}">${t().markWrapped}</button>`;
       actions += `<button class="btn small ghost" data-release="${it.id}">${t().release}</button>`;
     } else if (!claim && !funded && !pls.length) {
       actions += `<button class="btn small red" data-claim="${it.id}">${t().claim}</button>`;
@@ -1275,12 +1274,6 @@ async function renderShopList(ownerId, nav){
     await sb.from('claims').update({ status: 'bought' }).eq('item_id', it.id).eq('claimer_id', me.id).eq('active', true);
     await logActivity(me.id, ownerId, it.id, 'bought', it.title);
     toast(t().boughtOk); rerender();
-  }));
-  app.querySelectorAll('[data-wrapped]').forEach(b => b.addEventListener('click', async () => {
-    const it = items.find(x => x.id === b.dataset.wrapped);
-    await sb.from('claims').update({ status: 'wrapped' }).eq('item_id', it.id).eq('claimer_id', me.id).eq('active', true);
-    await logActivity(me.id, ownerId, it.id, 'wrapped', it.title);
-    toast(t().wrappedOk); rerender();
   }));
   app.querySelectorAll('[data-release]').forEach(b => b.addEventListener('click', async () => {
     if (!(await uiConfirm(t().confirmRelease))) return;
@@ -1391,18 +1384,17 @@ async function renderMyClaims(){
   const priceOf = (id) => Number(itemsById[id]?.price) || 0;
   const claimTotal = (claims || []).reduce((s, c) => s + priceOf(c.item_id), 0);
   const boughtTotal = (claims || []).filter(c => c.status === 'bought' || c.status === 'wrapped').reduce((s, c) => s + priceOf(c.item_id), 0);
-  const wrappedCount = (claims || []).filter(c => c.status === 'wrapped').length;
   const pledgeTotal = (pledges || []).reduce((s, p) => s + Number(p.amount), 0);
   const row = (inner) => `<div class="item">${inner}</div>`;
   app.innerHTML = `
     <button class="btn small ghost" id="c-back">${t().backHome}</button>
     <div class="card"><h2>${t().yourClaimsTitle}</h2>
-    ${(claims?.length || pledges?.length) ? `<p style="font-size:17px;margin:0 0 6px"><b>${t().shopSummary}</b></p><div style="margin-bottom:12px"><span class="chip claimed">${t().sumClaimed(money(claimTotal))}</span><span class="chip bought">${t().sumBought(money(boughtTotal))}</span>${wrappedCount ? `<span class="chip wrapped">${t().sumWrapped(wrappedCount)}</span>` : ''}${pledgeTotal ? `<span class="chip pool">${t().sumPledged(money(pledgeTotal))}</span>` : ''}</div>` : ''}
+    ${(claims?.length || pledges?.length) ? `<p style="font-size:17px;margin:0 0 6px"><b>${t().shopSummary}</b></p><div style="margin-bottom:12px"><span class="chip claimed">${t().sumClaimed(money(claimTotal))}</span><span class="chip bought">${t().sumBought(money(boughtTotal))}</span>${pledgeTotal ? `<span class="chip pool">${t().sumPledged(money(pledgeTotal))}</span>` : ''}</div>` : ''}
     ${(!claims?.length && !pledges?.length && !line?.length) ? `<p class="muted">${t().noClaims}</p>` : ''}
     ${(claims||[]).map(c => { const it = itemsById[c.item_id]; if (!it) return ''; return row(`
       <h3>${esc(it.title)}</h3>
       ${itemImg(it)}
-      ${c.status === 'wrapped' ? `<span class="chip wrapped">${t().wrappedFor(personName(it.owner_id))}</span>` : `<span class="chip ${c.status === 'bought' ? 'bought' : 'claimed'}">${t().youClaimed} — ${esc(personName(it.owner_id))}</span>`}
+      <span class="chip ${(c.status === 'bought' || c.status === 'wrapped') ? 'bought' : 'claimed'}">${t().youClaimed} — ${esc(personName(it.owner_id))}</span>
       ${it.archived ? `<span class="chip claimed">⚠️ ${t().removedItems}</span>` : ''}
       ${it.price != null ? `<span class="price">${money(it.price)}</span>` : ''}
       ${it.url ? `<div><a class="buy" href="${esc(it.url)}" target="_blank" rel="noopener">${t().viewLink}</a></div>` : ''}
@@ -1411,7 +1403,6 @@ async function renderMyClaims(){
       <div class="rowflex" style="margin-top:8px">
         <button class="btn small ghost" data-note="${c.id}">${t().save}</button>
         ${c.status === 'claimed' ? `<button class="btn small green" data-cbought="${c.id}">${t().markBought}</button>` : ''}
-        ${c.status === 'bought' ? `<button class="btn small green" data-cwrapped="${c.id}">${t().markWrapped}</button>` : ''}
         <button class="btn small ghost" data-crelease="${c.id}">${t().release}</button>
       </div>`); }).join('')}
     ${(pledges||[]).map(p => { const it = itemsById[p.item_id]; if (!it) return ''; return row(`
@@ -1435,9 +1426,6 @@ async function renderMyClaims(){
   }));
   app.querySelectorAll('[data-cbought]').forEach(b => b.addEventListener('click', async () => {
     await sb.from('claims').update({ status: 'bought' }).eq('id', b.dataset.cbought); toast(t().boughtOk); bust('claims:mine', 'home:coverage'); renderMyClaims();
-  }));
-  app.querySelectorAll('[data-cwrapped]').forEach(b => b.addEventListener('click', async () => {
-    await sb.from('claims').update({ status: 'wrapped' }).eq('id', b.dataset.cwrapped); toast(t().wrappedOk); bust('claims:mine', 'home:coverage'); renderMyClaims();
   }));
   app.querySelectorAll('[data-crelease]').forEach(b => b.addEventListener('click', async () => {
     if (!(await uiConfirm(t().confirmRelease))) return;
