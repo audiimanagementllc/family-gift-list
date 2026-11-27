@@ -337,7 +337,7 @@ const T = {
     helpedPerson: (n)=>`Helping ${n}`, viewAsShopper: "Shop for them instead",
     nothingHere: "Nothing here yet.",
     askTitle: "❓ Questions & answers",
-    askHelp: "Ask anonymously — the owner sees your question but never who asked. Answers show here for every shopper.",
+    askHelp: "Ask anonymously — the owner sees your question but never who asked. You'll get a ping on your home page when it's answered.",
     askPh: "Your question (size, color, which one…)",
     askBtn: "Ask anonymously", askedOk: "Question sent anonymously.",
     qsForYou: "❓ Questions for you",
@@ -345,6 +345,9 @@ const T = {
     answerPh: "Your answer", answerBtn: "Answer", answeredOk: "Answer posted.",
     noQs: "No questions yet.", unanswered: "Waiting for an answer",
     newQFlag: "You have a new anonymous question about your list.",
+    qHubTitle: "❓ Questions", qIncoming: "For you to answer", qAsked: "You asked",
+    qNewAnswer: "✨ New answer", qViewList: "View list",
+    qAnsweredFlag: (n)=>`💬 Your question about ${n}'s list was answered — see it on your home page.`,
     addPhoto: "📷 Add a photo (optional)", photoLinkPh: "…or paste an image link",
     removePhoto: "Remove photo", emptyBadge: "No items yet",
     switchFamily: "Use a different family code",
@@ -423,7 +426,7 @@ const T = {
     helpedPerson: (n)=>`Ayudando a ${n}`, viewAsShopper: "Mejor comprar para esta persona",
     nothingHere: "Todavía no hay nada.",
     askTitle: "❓ Preguntas y respuestas",
-    askHelp: "Pregunta de forma anónima — el dueño ve tu pregunta pero nunca quién la hizo. Las respuestas se muestran aquí para todos los compradores.",
+    askHelp: "Pregunta de forma anónima — el dueño ve tu pregunta pero nunca quién la hizo. Recibirás un aviso en tu página de inicio cuando la respondan.",
     askPh: "Tu pregunta (talla, color, cuál…)",
     askBtn: "Preguntar anónimamente", askedOk: "Pregunta enviada anónimamente.",
     qsForYou: "❓ Preguntas para ti",
@@ -431,6 +434,9 @@ const T = {
     answerPh: "Tu respuesta", answerBtn: "Responder", answeredOk: "Respuesta publicada.",
     noQs: "Todavía no hay preguntas.", unanswered: "Esperando una respuesta",
     newQFlag: "Tienes una pregunta anónima nueva sobre tu lista.",
+    qHubTitle: "❓ Preguntas", qIncoming: "Para que respondas", qAsked: "Tú preguntaste",
+    qNewAnswer: "✨ Respuesta nueva", qViewList: "Ver lista",
+    qAnsweredFlag: (n)=>`💬 Tu pregunta sobre la lista de ${n} fue respondida — mírala en tu página de inicio.`,
     addPhoto: "📷 Agregar una foto (opcional)", photoLinkPh: "…o pega un enlace de imagen",
     removePhoto: "Quitar foto", emptyBadge: "Sin artículos todavía",
     switchFamily: "Usar otro código de familia",
@@ -750,16 +756,47 @@ async function renderHome(){
   const d = daysToChristmas();
   let itemsCached = cacheGet('home:items');
   let basicsCached = cacheGet('home:basics');
-  const [flagsRes, itemsRes, basicsRes] = await Promise.all([
+  const myCanonH = listOwnerId(me);
+  const myLinkedIds = [...new Set([me.id, ...allPeople.filter(p => listOwnerId(p) === myCanonH).map(p => p.id)])];
+  const inOwners = [...new Set([myCanonH, ...helped.map(p => listOwnerId(p))])];
+  const [flagsRes, itemsRes, basicsRes, qInRes, qMyRes] = await Promise.all([
     sb.from('flags').select('*').eq('for_person_id', me.id).eq('seen', false).order('created_at'),
     itemsCached ? Promise.resolve({ data: itemsCached }) : sb.from('items').select('*').eq('archived', false),
-    basicsCached ? Promise.resolve({ data: basicsCached }) : sb.from('basics').select('*')
+    basicsCached ? Promise.resolve({ data: basicsCached }) : sb.from('basics').select('*'),
+    sb.from('questions').select('*').in('owner_id', inOwners).order('created_at'),
+    sb.from('questions').select('*').in('asker_id', myLinkedIds).order('created_at')
   ]);
   if (!itemsCached) itemsCached = cacheSet('home:items', itemsRes.data || []);
   if (!basicsCached) basicsCached = cacheSet('home:basics', basicsRes.data || []);
   const basicsByOwner = {};
   basicsCached.forEach(b => { if (b.sizes || b.colors || b.likes || b.snacks || b.avoid) basicsByOwner[b.person_id] = true; });
   const myFlags = flagsRes.data;
+  // Questions hub: questions waiting on me (or on people I help), plus questions I asked with their answers.
+  const inOpen = (qInRes.data || []).filter(q => !q.answer);
+  const myAsked = [...(qMyRes.data || [])].reverse().slice(0, 8);
+  let qSeen = {}; try { qSeen = JSON.parse(localStorage.getItem('fgl_qseen') || '{}'); } catch(e){}
+  const isNewAns = (q) => !!(q.answer && q.answered_at && qSeen[q.id] !== q.answered_at);
+  const newAnsCount = myAsked.filter(isNewAns).length;
+  const pidForOwner = (oid) => { const p = people.find(x => listOwnerId(x) === oid); return p ? p.id : null; };
+  const nameForOwner = (oid) => { const p = allPeople.find(x => listOwnerId(x) === oid) || people.find(x => listOwnerId(x) === oid); return p ? p.name : '—'; };
+  let qHub = '';
+  if (inOpen.length || myAsked.length) {
+    qHub = `<div class="card"><h2>${t().qHubTitle}${inOpen.length ? ` <span class="chip claimed">${inOpen.length}</span>` : ''}${newAnsCount ? ` <span class="chip bought">${t().qNewAnswer}</span>` : ''}</h2>
+      ${inOpen.length ? `<h3 style="margin:8px 0 6px">${t().qIncoming}</h3>${inOpen.map(q => { const pid = pidForOwner(q.owner_id); return `
+        <div class="item">
+          <div>❓ ${esc(q.question)}</div>
+          <div class="muted">${esc(nameForOwner(q.owner_id))}</div>
+          ${pid ? `<div style="margin-top:6px"><button class="btn small green" data-qanswer="${pid}">${t().answerBtn}</button></div>` : ''}
+        </div>`; }).join('')}` : ''}
+      ${myAsked.length ? `<h3 style="margin:12px 0 6px">${t().qAsked}</h3>${myAsked.map(q => { const pid = pidForOwner(q.owner_id); return `
+        <div class="item">
+          <div>❓ ${esc(q.question)}</div>
+          <div class="muted">→ ${esc(nameForOwner(q.owner_id))}</div>
+          ${q.answer ? `<div class="notes">💬 ${esc(q.answer)}</div>${isNewAns(q) ? `<span class="chip bought">${t().qNewAnswer}</span>` : ''}` : `<span class="chip claimed">${t().unanswered}</span>`}
+          ${pid ? `<div style="margin-top:6px"><button class="btn small ghost" data-qview="${pid}" data-qid="${q.id}">${t().qViewList}</button></div>` : ''}
+        </div>`; }).join('')}` : ''}
+    </div>`;
+  }
   const inSpace = new Set(people.map(p => p.id));
   const effOwners = new Set(people.map(p => listOwnerId(p)));
   const allItems = itemsCached.filter(i => inSpace.has(i.owner_id) || effOwners.has(i.owner_id));
@@ -815,6 +852,7 @@ async function renderHome(){
   app.innerHTML = `
     ${d > 0 ? `<div class="countdown">🎄 ${d} ${t().countdown}</div>` : (d === 0 ? `<div class="countdown">${t().today}</div>` : '')}
     ${(myFlags && myFlags.length) ? `<div class="card"><h2>📣 ${t().flagsTitle}</h2>${myFlags.map(f => `<div class="flag">${esc(f.message)}<br><button class="btn small ghost" data-flag="${f.id}">${t().flagDismiss}</button></div>`).join('')}</div>` : ''}
+    ${qHub}
     ${ssCard}
     <div class="hat shop">${t().hatShop(me.name)}</div>
     <button class="btn red" id="h-mylist">${t().myList}</button>
@@ -847,6 +885,12 @@ async function renderHome(){
   }));
   app.querySelectorAll('[data-flag]').forEach(b => b.addEventListener('click', async () => {
     await sb.from('flags').update({ seen: true }).eq('id', b.dataset.flag); renderHome();
+  }));
+  app.querySelectorAll('[data-qanswer]').forEach(b => b.addEventListener('click', () => renderOwnerList(b.dataset.qanswer, true)));
+  app.querySelectorAll('[data-qview]').forEach(b => b.addEventListener('click', () => {
+    const q = myAsked.find(x => x.id === b.dataset.qid);
+    if (q && q.answered_at) { qSeen[q.id] = q.answered_at; try { localStorage.setItem('fgl_qseen', JSON.stringify(qSeen)); } catch(e){} }
+    renderShopList(b.dataset.qview, true);
   }));
 }
 // ---------- Sorting / filtering (shared by owner + shopper lists) ----------
@@ -1014,6 +1058,13 @@ async function renderOwnerList(ownerId, nav){
   app.querySelectorAll('[data-answer]').forEach(b => b.addEventListener('click', async () => {
     const ans = $(`#ans-${b.dataset.answer}`).value.trim(); if (!ans) return;
     await sb.from('questions').update({ answer: ans, answered_at: new Date().toISOString() }).eq('id', b.dataset.answer);
+    // Ping the asker on their home page — asker_id is stored but never shown to the owner, so it stays anonymous.
+    const qRow = (qsList || []).find(x => x.id === b.dataset.answer);
+    if (qRow && qRow.asker_id) {
+      const asker = (typeof allPeople !== 'undefined' ? allPeople : []).find(p => p.id === qRow.asker_id);
+      const aLang = (asker && asker.lang === 'es') ? 'es' : 'en';
+      await flag(qRow.asker_id, null, T[aLang].qAnsweredFlag(owner.name));
+    }
     bust(ownerKey, 'shop:' + effOwner);
     toast(t().answeredOk); renderOwnerList(ownerId);
   }));
@@ -1254,7 +1305,7 @@ async function renderShopList(ownerId, nav){
   wireSortBar(rerender);
   $('#q-ask').addEventListener('click', async () => {
     const qtext = $('#q-text').value.trim(); if (!qtext) { $('#q-text').focus(); return; }
-    const { error } = await sb.from('questions').insert({ owner_id: effOwner, question: qtext });
+    const { error } = await sb.from('questions').insert({ owner_id: effOwner, question: qtext, asker_id: me.id });
     if (error) { toast(error.message); return; }
     const ownerLang = (owner.lang === 'es') ? 'es' : 'en';
     await flag(ownerId, null, T[ownerLang].newQFlag);
