@@ -861,7 +861,7 @@ async function renderHome(){
       <h2>${t().shopFor}</h2>
       ${others.map(p => `<button class="btn ghost" data-shop="${p.id}">${faceFor(p.id)} ${esc(p.name)}${emptyChip(listOwnerId(p))}${coverChip(listOwnerId(p))}</button>`).join('')}
     </div>
-    ${isSS() ? '' : `<button class="btn green" id="h-claims">${t().myClaims}</button>`}
+    <button class="btn green" id="h-claims">${t().myClaims}</button>
     <button class="btn ghost" id="h-emoji">${t().emojiBtn(faceFor(me.id))}</button>
     ${me.is_organizer ? `<button class="btn ghost" id="h-org">${t().organizer}</button>` : ''}
     ${famBtns}
@@ -1204,6 +1204,12 @@ async function renderShopList(ownerId, nav){
         sb.from('waitlist').select('*').in('item_id', ids0).eq('active', true).order('created_at')
       ]);
       claims0 = c.data || []; pledges0 = p.data || []; line0 = w.data || [];
+    } else if (ids0.length) {
+      // Secret Santa, non-shared list: load ONLY my own claims, so I can track
+      // what I claimed and bought. Nobody else's claim status is ever fetched,
+      // so the secrecy of the draw is preserved.
+      const c = await sb.from('claims').select('*').in('item_id', ids0).eq('active', true).eq('claimer_id', me.id);
+      claims0 = c.data || [];
     }
     const { data: shopQs0 } = await sb.from('questions').select('*').eq('owner_id', effOwner).order('created_at');
     bundle = cacheSet(shopKey, { items: items0, basicsRows: basicsRows0, claims: claims0, pledges: pledges0, line: line0, shopQs: shopQs0 });
@@ -1219,6 +1225,7 @@ async function renderShopList(ownerId, nav){
   const shopQs = bundle.shopQs;
   const prioStars = (n) => '⭐'.repeat(4 - n);
   const claimsOn = !isSS() || shared;
+  const ssPrivate = isSS() && !shared;
   const statusOf = (it) => {
     if (claims.find(c => c.item_id === it.id)) return 'claimed';
     const pls = pledges.filter(p => p.item_id === it.id);
@@ -1249,7 +1256,7 @@ async function renderShopList(ownerId, nav){
     } else if (!claim && !funded && !pls.length) {
       actions += `<button class="btn small red" data-claim="${it.id}">${t().claim}</button>`;
     }
-    if (!claim && it.price != null && !funded) {
+    if (!claim && it.price != null && !funded && !ssPrivate) {
       actions += myPledge
         ? `<button class="btn small ghost" data-withdraw="${it.id}">${t().release} (${money(myPledge.amount)})</button>`
         : `<span class="rowflex"><input type="number" id="pl-${it.id}" placeholder="${t().pledgePh}" min="1" step="0.01" inputmode="decimal" style="max-width:150px"><button class="btn small green" data-pledge="${it.id}">${t().joinPool}</button></span>`;
@@ -1259,7 +1266,6 @@ async function renderShopList(ownerId, nav){
         ? `<button class="btn small ghost" data-unline="${it.id}">${t().leaveLine}</button><span class="muted">${t().youNext}</span>`
         : `<button class="btn small ghost" data-line="${it.id}">${t().getInLine}</button>`;
     }
-    if (isSS() && !shared) { chips = ''; actions = ''; }
     return `
       <div class="item" ${it.priority === 1 ? 'style="border-left:5px solid #c99700"' : ''}>
         <h3>${esc(it.title)}</h3>
@@ -1313,7 +1319,9 @@ async function renderShopList(ownerId, nav){
   });
   app.querySelectorAll('[data-claim]').forEach(b => b.addEventListener('click', async () => {
     const it = items.find(x => x.id === b.dataset.claim);
-    const { data: existing } = await sb.from('claims').select('*').eq('item_id', it.id).eq('active', true);
+    let exq = sb.from('claims').select('*').eq('item_id', it.id).eq('active', true);
+    if (ssPrivate) exq = exq.eq('claimer_id', me.id);
+    const { data: existing } = await exq;
     if (existing && existing.length) { toast(t().statusClaimed(dispName(existing[0].claimer_id))); return rerender(); }
     const { error } = await sb.from('claims').insert({ item_id: it.id, claimer_id: me.id, status: 'claimed' });
     if (error) { toast(error.message); return; }
