@@ -1266,20 +1266,28 @@ async function renderShopList(ownerId, nav){
     if (existing && existing.length) { toast(t().statusClaimed(dispName(existing[0].claimer_id))); return rerender(); }
     const { error } = await sb.from('claims').insert({ item_id: it.id, claimer_id: me.id, status: 'claimed' });
     if (error) { toast(error.message); return; }
-    await logActivity(me.id, ownerId, it.id, 'claim', it.title);
+    logActivity(me.id, ownerId, it.id, 'claim', it.title);
     toast(t().claimedOk); rerender();
   }));
   app.querySelectorAll('[data-bought]').forEach(b => b.addEventListener('click', async () => {
     const it = items.find(x => x.id === b.dataset.bought);
-    await sb.from('claims').update({ status: 'bought' }).eq('item_id', it.id).eq('claimer_id', me.id).eq('active', true);
-    await logActivity(me.id, ownerId, it.id, 'bought', it.title);
-    toast(t().boughtOk); rerender();
+    // Optimistic: update the cached claim and repaint instantly; persist in the background.
+    const claim = claims.find(c => c.item_id === it.id && c.claimer_id === me.id);
+    if (claim) claim.status = 'bought';
+    toast(t().boughtOk);
+    bust('home:coverage', 'claims:mine');
+    renderShopList(ownerId);
+    try {
+      const { error } = await sb.from('claims').update({ status: 'bought' }).eq('item_id', it.id).eq('claimer_id', me.id).eq('active', true);
+      if (error) { bust(shopKey); renderShopList(ownerId); }
+    } catch(e) { bust(shopKey); renderShopList(ownerId); }
+    logActivity(me.id, ownerId, it.id, 'bought', it.title);
   }));
   app.querySelectorAll('[data-release]').forEach(b => b.addEventListener('click', async () => {
     if (!(await uiConfirm(t().confirmRelease))) return;
     const it = items.find(x => x.id === b.dataset.release);
     await sb.from('claims').update({ active: false }).eq('item_id', it.id).eq('claimer_id', me.id).eq('active', true);
-    await logActivity(me.id, ownerId, it.id, 'release', it.title);
+    logActivity(me.id, ownerId, it.id, 'release', it.title);
     const { data: w } = await sb.from('waitlist').select('*').eq('item_id', it.id).eq('active', true).order('created_at').limit(1);
     if (w && w.length) await flag(w[0].person_id, it.id, t().yourTurnFlag(it.title, owner.name));
     toast(t().releasedOk); rerender();
@@ -1295,7 +1303,7 @@ async function renderShopList(ownerId, nav){
     if (finalAmt <= 0) { toast(t().poolDone); return; }
     const { error } = await sb.from('pledges').insert({ item_id: it.id, person_id: me.id, amount: finalAmt });
     if (error) { toast(error.message); return; }
-    await logActivity(me.id, ownerId, it.id, 'pledge', `${it.title} $${finalAmt}`);
+    logActivity(me.id, ownerId, it.id, 'pledge', `${it.title} $${finalAmt}`);
     toast(t().pledgedOk); rerender();
   }));
   app.querySelectorAll('[data-withdraw]').forEach(b => b.addEventListener('click', async () => {
@@ -1425,7 +1433,14 @@ async function renderMyClaims(){
     toast(t().noteSaved);
   }));
   app.querySelectorAll('[data-cbought]').forEach(b => b.addEventListener('click', async () => {
-    await sb.from('claims').update({ status: 'bought' }).eq('id', b.dataset.cbought); toast(t().boughtOk); bust('claims:mine', 'home:coverage'); renderMyClaims();
+    // Optimistic: update the cached claim and repaint instantly; persist in the background.
+    const c = (claims||[]).find(x => x.id === b.dataset.cbought);
+    if (c) c.status = 'bought';
+    toast(t().boughtOk); bust('home:coverage'); renderMyClaims();
+    try {
+      const { error } = await sb.from('claims').update({ status: 'bought' }).eq('id', b.dataset.cbought);
+      if (error) { bust('claims:mine'); renderMyClaims(); }
+    } catch(e) { bust('claims:mine'); renderMyClaims(); }
   }));
   app.querySelectorAll('[data-crelease]').forEach(b => b.addEventListener('click', async () => {
     if (!(await uiConfirm(t().confirmRelease))) return;
